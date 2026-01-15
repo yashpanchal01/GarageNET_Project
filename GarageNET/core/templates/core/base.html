@@ -1,14 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>GarageNet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
 
-    <title>{% block title %}{% endblock %}| GarageNET </title>
-</head> 
-<body>
-    {% block content %}
-    {% endblock %}
+<body class="bg-gray-100 font-sans">
+
+  <!-- Navbar -->
+  <nav class="bg-white shadow px-6 py-4 flex justify-between">
+    <h1 class="text-xl font-bold text-gray-800">GarageNet</h1>
+    <span class="text-sm text-gray-500">Workshop Management</span>
+  </nav>
+
+  <div class="flex">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 text-white min-h-screen p-4">
+      <ul class="space-y-4">
+        <li class="text-blue-400 font-semibold">Dashboard</li>
+        <li class="hover:text-blue-400 cursor-pointer">Job Cards</li>
+        <li class="hover:text-blue-400 cursor-pointer">Inventory</li>
+        <li class="hover:text-blue-400 cursor-pointer">Billing</li>
+      </ul>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-6">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+
 </body>
-</html> 
+</html>

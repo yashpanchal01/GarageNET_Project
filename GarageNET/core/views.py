@@ -15,6 +15,13 @@ def bills(request):
 
 def job_list(request):
     pass
+
+def jobcards(request):
+    return render(request, 'core/jobcards.html')
+
+def dashboard(request):
+    return render(request, 'core/index.html')
+
      
 
 
