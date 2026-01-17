@@ -1,28 +1,35 @@
 {% extends "core/base.html" %}
 
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+<div class="mb-6">
+  <h2 class="text-2xl font-extrabold text-slate-900">Dashboard</h2>
+  <p class="text-sm text-slate-500 mt-1">Quick actions for daily garage workflow</p>
+</div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 
-  <a href="/jobcards/" class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block">
-    <h3 class="text-lg font-semibold">Job Cards</h3>
-    <p class="text-sm text-gray-500 mt-1">Manage work orders</p>
+  <a href="/jobcards/" class="bg-white rounded-2xl shadow p-6 hover:shadow-lg transition block border">
+    <div class="text-2xl">🧾</div>
+    <h3 class="text-lg font-semibold mt-3">Job Cards</h3>
+    <p class="text-sm text-slate-500 mt-1">Create & manage vehicle work orders</p>
   </a>
 
-  <a href="/inventory/" class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block">
-    <h3 class="text-lg font-semibold">Inventory</h3>
-    <p class="text-sm text-gray-500 mt-1">Parts & stock</p>
+  <a href="/inventory/" class="bg-white rounded-2xl shadow p-6 hover:shadow-lg transition block border">
+    <div class="text-2xl">📦</div>
+    <h3 class="text-lg font-semibold mt-3">Inventory</h3>
+    <p class="text-sm text-slate-500 mt-1">Track parts, stock & pricing</p>
   </a>
 
-  <a href="/billing/" class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block">
-    <h3 class="text-lg font-semibold">Billing</h3>
-    <p class="text-sm text-gray-500 mt-1">Invoices & payments</p>
+  <a href="/billing/" class="bg-white rounded-2xl shadow p-6 hover:shadow-lg transition block border">
+    <div class="text-2xl">💳</div>
+    <h3 class="text-lg font-semibold mt-3">Billing</h3>
+    <p class="text-sm text-slate-500 mt-1">Generate invoices and manage payments</p>
   </a>
 
-  <div class="bg-white rounded-xl shadow p-6">
-    <h3 class="text-lg font-semibold">GSearch</h3>
-    <p class="text-sm text-gray-500 mt-1">Find spare parts</p>
+  <div class="bg-white rounded-2xl shadow p-6 border">
+    <div class="text-2xl">🔎</div>
+    <h3 class="text-lg font-semibold mt-3">GSearch</h3>
+    <p class="text-sm text-slate-500 mt-1">Search spare parts quickly (coming soon)</p>
   </div>
 
 </div>

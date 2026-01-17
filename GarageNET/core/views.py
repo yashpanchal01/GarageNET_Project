@@ -1,34 +1,22 @@
 from django.shortcuts import render, redirect
-
 from .models import JobCard
 
-
-# ---------- DASHBOARD ----------
 def dashboard(request):
-    return render(request, 'core/index.html')
+    return render(request, 'core/index.html', {'active_page': 'dashboard'})
 
-
-# ---------- INVENTORY ----------
 def inventory(request):
-    return render(request, 'core/inventory.html')
+    return render(request, 'core/inventory.html', {'active_page': 'inventory'})
 
-# ---------- BILLING (placeholder) ----------
 def billing(request):
-     return render(request, 'core/bills.html')
-    
+    return render(request, 'core/bills.html', {'active_page': 'billing'})
 
-     return render(request, 'core/bills.html')
-
-
-# ---------- JOB CARDS LIST ----------
 def jobcards(request):
     jobcards = JobCard.objects.all()
     return render(request, 'core/jobcards.html', {
-        'jobcards': jobcards
+        'jobcards': jobcards,
+        'active_page': 'jobcards'
     })
 
-
-# ---------- ADD JOBCARD ----------
 def add_jobcard(request):
     if request.method == 'POST':
         JobCard.objects.create(
@@ -38,6 +26,4 @@ def add_jobcard(request):
         )
         return redirect('jobcards')
 
-    # GET request
-    return render(request, 'core/add_jobcard.html')
-   
+    return render(request, 'core/add_jobcard.html', {'active_page': 'jobcards'})

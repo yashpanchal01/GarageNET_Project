@@ -13,42 +13,72 @@
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 
-<body class="bg-gray-100">
+<body class="bg-slate-100">
   <div class="flex min-h-screen">
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-slate-900 text-white p-5">
-      <h1 class="text-2xl font-bold mb-8">GarageNet</h1>
+    <aside class="w-64 bg-slate-950 text-white p-5">
+      <div class="mb-8">
+        <h1 class="text-2xl font-extrabold tracking-tight">GarageNet</h1>
+        <p class="text-xs text-slate-300 mt-1">Workshop Management</p>
+      </div>
 
-      <ul class="space-y-2 text-sm font-medium">
-        <li>
-          <a href="/" class="block px-4 py-2 rounded hover:bg-slate-800">
-            Dashboard
-          </a>
-        </li>
-        <li>
-          <a href="/jobcards/" class="block px-4 py-2 rounded hover:bg-slate-800">
-            Job Cards
-          </a>
-        </li>
-        <li>
-          <a href="/inventory/" class="block px-4 py-2 rounded hover:bg-slate-800">
-            Inventory
-          </a>
-        </li>
-        <li>
-          <a href="/billing/" class="block px-4 py-2 rounded hover:bg-slate-800">
-            Billing
-          </a>
-        </li>
-      </ul>
+      <nav class="space-y-2 text-sm font-medium">
+        <a href="/"
+           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'dashboard' %}bg-slate-900 text-blue-300{% endif %}">
+          📊 <span>Dashboard</span>
+        </a>
+
+        <a href="/jobcards/"
+           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'jobcards' %}bg-slate-900 text-blue-300{% endif %}">
+          🧾 <span>Job Cards</span>
+        </a>
+
+        <a href="/inventory/"
+           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'inventory' %}bg-slate-900 text-blue-300{% endif %}">
+          📦 <span>Inventory</span>
+        </a>
+
+        <a href="/billing/"
+           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'billing' %}bg-slate-900 text-blue-300{% endif %}">
+          💳 <span>Billing</span>
+        </a>
+      </nav>
+
+      <div class="mt-10 border-t border-slate-800 pt-5 text-xs text-slate-400">
+        <p>© 2026 GarageNet</p>
+        <p class="mt-1">Built by Team</p>
+      </div>
     </aside>
 
     <!-- Main -->
-    <main class="flex-1 p-8">
-      {% block content %}{% endblock %}
-    </main>
+    <div class="flex-1">
 
+      <!-- Navbar -->
+      <header class="bg-white border-b px-8 py-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">Garage Dashboard</h2>
+          <p class="text-xs text-slate-500">Fast workflow • Clean billing • Easy tracking</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search job cards..."
+            class="hidden md:block w-72 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold">
+            A
+          </div>
+        </div>
+      </header>
+
+      <!-- Page container -->
+      <main class="p-8">
+        {% block content %}{% endblock %}
+      </main>
+
+    </div>
   </div>
 </body>
 </html>
