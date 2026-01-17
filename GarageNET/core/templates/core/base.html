@@ -1,53 +1,54 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GarageNet</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 
-<body class="bg-gray-100 font-sans">
-
-  <!-- Navbar -->
-  <nav class="bg-white shadow px-6 py-4 flex justify-between">
-    <h1 class="text-xl font-bold text-gray-800">GarageNet</h1>
-    <span class="text-sm text-gray-500">Workshop Management</span>
-  </nav>
-
-  <div class="flex">
+<body class="bg-gray-100">
+  <div class="flex min-h-screen">
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-gray-900 text-white min-h-screen p-4">
-      <ul class="space-y-4">
-        <li class="text-blue-400 font-semibold">
-          <a href="/">Dashboard</a>
+    <aside class="w-64 bg-slate-900 text-white p-5">
+      <h1 class="text-2xl font-bold mb-8">GarageNet</h1>
+
+      <ul class="space-y-2 text-sm font-medium">
+        <li>
+          <a href="/" class="block px-4 py-2 rounded hover:bg-slate-800">
+            Dashboard
+          </a>
         </li>
-
-        <li class="hover:text-blue-400 cursor-pointer">
-          <a href="/jobcards/">Job Cards</a>
+        <li>
+          <a href="/jobcards/" class="block px-4 py-2 rounded hover:bg-slate-800">
+            Job Cards
+          </a>
         </li>
-
-        <li class="hover:text-blue-400 cursor-pointer">
-          <a href="/inventory/">Inventory</a>
+        <li>
+          <a href="/inventory/" class="block px-4 py-2 rounded hover:bg-slate-800">
+            Inventory
+          </a>
         </li>
-
-        <li class="hover:text-blue-400 cursor-pointer">
-          <a href="#">Billing</a>
+        <li>
+          <a href="/billing/" class="block px-4 py-2 rounded hover:bg-slate-800">
+            Billing
+          </a>
         </li>
-
-
       </ul>
-
     </aside>
 
     <!-- Main -->
-    <main class="flex-1 p-6">
+    <main class="flex-1 p-8">
       {% block content %}{% endblock %}
     </main>
 
   </div>
-
 </body>
-
 </html>

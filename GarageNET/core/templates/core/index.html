@@ -1,27 +1,29 @@
-{% extends 'core/base.html' %}
+{% extends "core/base.html" %}
 
 {% block content %}
-<h2 class="text-2xl font-semibold mb-6">Dashboard</h2>
+<h2 class="text-2xl font-bold mb-6">Dashboard</h2>
 
-<div class="grid grid-cols-4 gap-6">
-  <div class="bg-white p-6 rounded shadow text-center">
-    <h3 class="font-bold">Job Cards</h3>
-    <p class="text-gray-500 text-sm">Manage work orders</p>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+  <a href="/jobcards/" class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block">
+    <h3 class="text-lg font-semibold">Job Cards</h3>
+    <p class="text-sm text-gray-500 mt-1">Manage work orders</p>
+  </a>
+
+  <a href="/inventory/" class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block">
+    <h3 class="text-lg font-semibold">Inventory</h3>
+    <p class="text-sm text-gray-500 mt-1">Parts & stock</p>
+  </a>
+
+  <a href="/billing/" class="bg-white rounded-xl shadow p-6 hover:shadow-lg transition block">
+    <h3 class="text-lg font-semibold">Billing</h3>
+    <p class="text-sm text-gray-500 mt-1">Invoices & payments</p>
+  </a>
+
+  <div class="bg-white rounded-xl shadow p-6">
+    <h3 class="text-lg font-semibold">GSearch</h3>
+    <p class="text-sm text-gray-500 mt-1">Find spare parts</p>
   </div>
 
-  <div class="bg-white p-6 rounded shadow text-center">
-    <h3 class="font-bold">Inventory</h3>
-    <p class="text-gray-500 text-sm">Parts & stock</p>
-  </div>
-
-  <div class="bg-white p-6 rounded shadow text-center">
-    <h3 class="font-bold">Billing</h3>
-    <p class="text-gray-500 text-sm">Invoices & payments</p>
-  </div>
-
-  <div class="bg-white p-6 rounded shadow text-center">
-    <h3 class="font-bold">GSearch</h3>
-    <p class="text-gray-500 text-sm">Find parts</p>
-  </div>
 </div>
 {% endblock %}

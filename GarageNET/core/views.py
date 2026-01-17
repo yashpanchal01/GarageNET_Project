@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+
 from .models import JobCard
 
 
@@ -10,6 +11,13 @@ def dashboard(request):
 # ---------- INVENTORY ----------
 def inventory(request):
     return render(request, 'core/inventory.html')
+
+# ---------- BILLING (placeholder) ----------
+def billing(request):
+     return render(request, 'core/bills.html')
+    
+
+     return render(request, 'core/bills.html')
 
 
 # ---------- JOB CARDS LIST ----------
@@ -32,8 +40,4 @@ def add_jobcard(request):
 
     # GET request
     return render(request, 'core/add_jobcard.html')
-
-
-# ---------- BILLING (placeholder) ----------
-def bills(request):
-    return render(request, 'core/bills.html')
+   
