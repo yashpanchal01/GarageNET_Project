@@ -1,14 +1,18 @@
 from django.shortcuts import render, redirect
 from .models import JobCard
 
+
 def dashboard(request):
     return render(request, 'core/index.html', {'active_page': 'dashboard'})
+
 
 def inventory(request):
     return render(request, 'core/inventory.html', {'active_page': 'inventory'})
 
+
 def billing(request):
     return render(request, 'core/bills.html', {'active_page': 'billing'})
+
 
 def jobcards(request):
     jobcards = JobCard.objects.all()
@@ -16,6 +20,7 @@ def jobcards(request):
         'jobcards': jobcards,
         'active_page': 'jobcards'
     })
+
 
 def add_jobcard(request):
     if request.method == 'POST':
