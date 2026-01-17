@@ -1,34 +1,94 @@
-{% extends 'core/base.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Job Cards | GarageNet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+        }
 
-{% block content %}
-<div class="flex justify-between items-center mb-6">
-  <h2 class="text-2xl font-semibold">Job Cards</h2>
-  <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-    + Create Job Card
-  </button>
-</div>
+        h1 {
+            margin-bottom: 10px;
+        }
 
-<table class="w-full bg-white rounded shadow">
-  <thead class="bg-gray-200 text-left">
-    <tr>
-      <th class="p-3">Customer</th>
-      <th class="p-3">Vehicle No</th>
-      <th class="p-3">Issue</th>
-      <th class="p-3">Status</th>
-      <th class="p-3">Action</th>
-    </tr>
-  </thead>
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
 
-  <tbody>
-    <tr class="border-t">
-      <td class="p-3">Rahul Patil</td>
-      <td class="p-3">MH12 AB 1234</td>
-      <td class="p-3">Brake issue</td>
-      <td class="p-3 text-green-600 font-semibold">Open</td>
-      <td class="p-3">
-        <button class="text-blue-600 hover:underline">View</button>
-      </td>
-    </tr>
-  </tbody>
-</table>
-{% endblock %}
+        .add-btn {
+            padding: 10px 16px;
+            background: #1f2937;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 16px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        .card h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .vehicle {
+            font-size: 14px;
+            color: #555;
+            margin: 6px 0;
+        }
+
+        .issue {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .status {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 4px 10px;
+            font-size: 12px;
+            border-radius: 12px;
+            background: #fde68a;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <h1>Job Cards</h1>
+        <a href="/jobcards/add/" class="add-btn">+ Add Job Card</a>
+    </div>
+
+    <div class="cards">
+        {% for job in jobcards %}
+        <div class="card">
+            <h3>{{ job.customer_name }}</h3>
+            <div class="vehicle">Vehicle: {{ job.vehicle_number }}</div>
+            <div class="issue">{{ job.issue }}</div>
+            <span class="status">Pending</span>
+        </div>
+        {% empty %}
+        <p>No job cards available.</p>
+        {% endfor %}
+    </div>
+
+</body>
+</html>

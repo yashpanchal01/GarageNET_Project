@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.urls import path
-from core.views import dashboard
+from core import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', dashboard, name='dashboard'),
+    path('', views.dashboard, name='dashboard'),
+    path('jobcards/', views.jobcards, name='jobcards'),
+    path('jobcards/add/', views.add_jobcard, name='add_jobcard'),
 ]
+ 
