@@ -1,12 +1,58 @@
 {% extends "core/base.html" %}
-
 {% block content %}
-<div class="mb-6">
-  <h2 class="text-2xl font-extrabold text-slate-900">Billing</h2>
-  <p class="text-sm text-slate-500 mt-1">Invoices & payments (coming soon)</p>
+
+<div class="flex justify-between items-start mb-6">
+    <div>
+        <h2 class="text-2xl font-extrabold text-slate-900">Billing</h2>
+        <p class="text-sm text-slate-500 mt-1">Invoices & payment tracking</p>
+    </div>
+
+    <a href="/billing/create/" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow">
+        + Create Invoice
+    </a>
+
 </div>
 
-<div class="bg-white rounded-2xl shadow border p-6">
-  <p class="text-slate-600">Billing module coming soon...</p>
+<div class="bg-white rounded-2xl shadow border overflow-hidden">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+                <th class="p-4">Invoice</th>
+                <th class="p-4">Customer</th>
+                <th class="p-4">Amount</th>
+                <th class="p-4">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="border-t hover:bg-slate-50">
+                <td class="p-4 font-semibold">#INV-001</td>
+                <td class="p-4">Rahul Patil</td>
+                <td class="p-4">₹2,450</td>
+                <td class="p-4">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">PAID</span>
+                </td>
+            </tr>
+
+            <tr class="border-t hover:bg-slate-50">
+                <td class="p-4 font-semibold">#INV-002</td>
+                <td class="p-4">Amit Sharma</td>
+                <td class="p-4">₹1,200</td>
+                <td class="p-4">
+                    <span
+                        class="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">PENDING</span>
+                </td>
+            </tr>
+
+            <tr class="border-t hover:bg-slate-50">
+                <td class="p-4 font-semibold">#INV-003</td>
+                <td class="p-4">Sneha Jadhav</td>
+                <td class="p-4">₹3,100</td>
+                <td class="p-4">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">DUE</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>
+
 {% endblock %}

@@ -1,0 +1,59 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="max-w-3xl mx-auto">
+  <h2 class="text-2xl font-extrabold text-slate-900">Create Invoice</h2>
+  <p class="text-sm text-slate-500 mt-1">Generate billing for completed job</p>
+
+  <div class="bg-white border shadow rounded-2xl p-6 mt-6">
+    <form>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">Customer Name</label>
+          <input type="text" placeholder="Rahul Patil"
+                 class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold mb-1">Vehicle Number</label>
+          <input type="text" placeholder="MH12 AB 1234"
+                 class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-semibold mb-1">Service Details</label>
+        <textarea rows="3" placeholder="Brake pad replacement, oil change"
+                  class="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <input type="number" placeholder="Labor Charges (₹)"
+               class="border rounded-lg px-3 py-2 text-sm">
+        <input type="number" placeholder="Parts Cost (₹)"
+               class="border rounded-lg px-3 py-2 text-sm">
+        <input type="number" placeholder="Tax (₹)"
+               class="border rounded-lg px-3 py-2 text-sm">
+      </div>
+
+      <div class="flex justify-between items-center mt-6">
+        <p class="text-lg font-bold">Total: ₹4,250</p>
+
+        <div class="flex gap-3">
+          <a href="/billing/"
+             class="px-5 py-2 border rounded-lg hover:bg-slate-50">
+            Cancel
+          </a>
+          <button type="button"
+                  class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 shadow">
+            Generate Invoice
+          </button>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+{% endblock %}

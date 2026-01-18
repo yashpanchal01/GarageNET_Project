@@ -1,0 +1,59 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<div class="bg-white border shadow rounded-2xl p-6">
+  <h2 class="text-2xl font-extrabold text-slate-900">GSearch</h2>
+  <p class="text-sm text-slate-500 mt-1">
+    Search spare parts across suppliers and garages (coming soon – main USP)
+  </p>
+
+  <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <input type="text" placeholder="Search part name (e.g. Brake Pads)"
+           class="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+
+    <select class="border rounded-lg px-3 py-2 text-sm">
+      <option>Category</option>
+      <option>Engine</option>
+      <option>Brakes</option>
+      <option>Electrical</option>
+    </select>
+
+    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow">
+      Search
+    </button>
+  </div>
+</div>
+
+<div class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+  <div class="bg-white border shadow rounded-2xl p-5">
+    <p class="text-xs text-slate-500">Available</p>
+    <h3 class="text-lg font-bold mt-1">Brake Pads</h3>
+    <p class="text-sm text-slate-600 mt-1">Brand: Bosch • Vehicle: Bike</p>
+    <p class="text-sm font-semibold mt-2">₹950</p>
+    <button class="mt-4 w-full border rounded-lg py-2 hover:bg-slate-50 text-sm">
+      Request / Contact
+    </button>
+  </div>
+
+  <div class="bg-white border shadow rounded-2xl p-5">
+    <p class="text-xs text-slate-500">Low Stock</p>
+    <h3 class="text-lg font-bold mt-1">Engine Oil 1L</h3>
+    <p class="text-sm text-slate-600 mt-1">Brand: Castrol • Vehicle: Car</p>
+    <p class="text-sm font-semibold mt-2">₹450</p>
+    <button class="mt-4 w-full border rounded-lg py-2 hover:bg-slate-50 text-sm">
+      Request / Contact
+    </button>
+  </div>
+
+  <div class="bg-white border shadow rounded-2xl p-5">
+    <p class="text-xs text-slate-500">Nearby</p>
+    <h3 class="text-lg font-bold mt-1">Air Filter</h3>
+    <p class="text-sm text-slate-600 mt-1">Brand: Mahle • Vehicle: Car</p>
+    <p class="text-sm font-semibold mt-2">₹350</p>
+    <button class="mt-4 w-full border rounded-lg py-2 hover:bg-slate-50 text-sm">
+      Request / Contact
+    </button>
+  </div>
+</div>
+
+{% endblock %}

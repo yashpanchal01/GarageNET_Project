@@ -40,69 +40,109 @@
       <nav class="space-y-2 text-sm font-medium">
         <a href="/"
           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'dashboard' %}bg-slate-900 text-blue-300{% endif %}">
-          📊 <span>Dashboard</span>
+          <span>Dashboard</span>
         </a>
 
         <a href="/jobcards/"
           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'jobcards' %}bg-slate-900 text-blue-300{% endif %}">
-          🧾 <span>Job Cards</span>
+          <span>Job Cards</span>
         </a>
 
         <a href="/inventory/"
           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'inventory' %}bg-slate-900 text-blue-300{% endif %}">
-          📦 <span>Inventory</span>
+          <span>Inventory</span>
         </a>
 
         <a href="/billing/"
           class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900 {% if active_page == 'billing' %}bg-slate-900 text-blue-300{% endif %}">
-          💳 <span>Billing</span>
+          <span>Billing</span>
         </a>
-      </nav>
+        <a href="/gsearch/" class="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-slate-900">
+          <span>GSearch</span>
+        </a>
 
-      <!-- Footer at bottom -->
-      <div class="absolute bottom-0 left-0 w-full border-t border-slate-800 p-4 text-xs text-slate-400">
-        <div class="flex justify-between">
-          <p>© 2026 GarageNet</p>
-          <p>Built by Team</p>
+
+
+        <!-- Footer at bottom -->
+        <div class="absolute bottom-0 left-0 w-full border-t border-slate-800 p-4 text-xs text-slate-400">
+          <div class="flex justify-between items-center">
+            <p>© 2026 GarageNet</p>
+            <br><br>
+            <p>-Built by Team</p>
+          </div>
         </div>
-      </div>
     </aside>
 
     <!-- Main -->
     <div class="flex-1">
 
       <!-- Navbar -->
-      <header class="bg-white border-b px-6 md:px-8 py-4 flex items-center justify-between">
+      <header class="bg-white border-b px-6 md:px-8 py-4 sticky top-0 z-30">
+        <div class="grid grid-cols-3 items-center">
 
-        <!-- LEFT: 3 dots + Title -->
-        <div class="flex items-center gap-3">
-          <!-- Toggle Sidebar button -->
-          <button onclick="toggleSidebar()" class="px-3 py-2 rounded-lg border hover:bg-slate-50 text-slate-700">
-            ⋮
-          </button>
-
-          <div>
-            <h2 class="text-lg font-bold text-slate-900">Garage Dashboard</h2>
-            <p class="text-xs text-slate-500">Fast workflow • Clean billing • Easy tracking</p>
+          <!-- LEFT: Sidebar toggle -->
+          <div class="flex items-center justify-start">
+            <button onclick="toggleSidebar()" class="px-3 py-2 rounded-lg border hover:bg-slate-50 text-slate-700">
+              ⋮
+            </button>
           </div>
-        </div>
 
-        <!-- RIGHT: Search + Profile -->
-        <div class="flex items-center gap-3">
-          <input type="text" placeholder="Search..."
-            class="hidden md:block w-72 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <!-- CENTER: Title -->
+          <div class="text-center">
+            <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 leading-tight tracking-tight">
+              GarageNet
+            </h2>
 
-          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold">
-            A
+
+
+            <p class="text-xs text-slate-500">
+              Professional garage management
+            </p>
           </div>
-        </div>
 
+          <!-- RIGHT: Search + Profile -->
+          <div class="flex items-center justify-end gap-3">
+            <input type="text" placeholder="Search job cards / vehicles..."
+              class="hidden md:block w-80 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+
+            <!-- Profile Dropdown -->
+            <div class="relative">
+              <button onclick="toggleProfileMenu()"
+                class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold">
+                A
+              </button>
+
+              <!-- Dropdown menu -->
+              <div id="profileMenu"
+                class="hidden absolute right-0 mt-2 w-44 bg-white border rounded-xl shadow-lg overflow-hidden z-50">
+
+                <a href="/login/" class="block px-4 py-2 text-sm hover:bg-slate-50">
+                  Login
+                </a>
+                <a href="/register/" class="block px-4 py-2 text-sm hover:bg-slate-50">
+                  Register
+                </a>
+
+                <div class="border-t"></div>
+
+                <a href="/admin/" class="block px-4 py-2 text-sm hover:bg-slate-50 text-slate-600">
+                  Admin
+                </a>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
       </header>
 
 
       <!-- Page -->
       <main class="p-6 md:p-8">
         {% block content %}{% endblock %}
+
+
+
       </main>
 
     </div>
@@ -116,7 +156,27 @@
       sidebar.classList.toggle("hidden");
       overlay.classList.toggle("hidden");
     }
+
+    function toggleProfileMenu() {
+      const menu = document.getElementById("profileMenu");
+      menu.classList.toggle("hidden");
+    }
+
+    // click outside -> close dropdown
+    document.addEventListener("click", function (event) {
+      const menu = document.getElementById("profileMenu");
+      if (!menu) return;
+
+      const profileButton = event.target.closest("button");
+      const insideMenu = event.target.closest("#profileMenu");
+
+      // agar dropdown open hai, aur click menu / button ke bahar hua -> close
+      if (!menu.classList.contains("hidden") && !insideMenu && !profileButton) {
+        menu.classList.add("hidden");
+      }
+    });
   </script>
+
 
 </body>
 
