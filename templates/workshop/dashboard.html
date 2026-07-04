@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — GarageNET{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start">
+  <div>
+    <h3 class="mb-1">{{ workshop.shop_name }}</h3>
+    <p class="text-muted">{{ workshop.address }}</p>
+  </div>
+  <a href="{% url 'profile' %}" class="btn btn-sm btn-outline-secondary">Edit profile</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card text-bg-primary shadow-sm">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2">Active Job Cards</h6>
+        <p class="display-5 fw-bold mb-0">{{ active_job_cards }}</p>
+        <a href="{% url 'job_cards' %}" class="stretched-link text-white-50 small">Manage jobs →</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card text-bg-danger shadow-sm">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2">Low Stock Items (&lt; {{ low_stock_threshold }})</h6>
+        <p class="display-5 fw-bold mb-0">{{ low_stock_items }}</p>
+        <a href="{% url 'inventory' %}" class="stretched-link text-white-50 small">Open ledger →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-7">
+    <div class="card shadow-sm">
+      <div class="card-header">Recent Job Cards</div>
+      <ul class="list-group list-group-flush">
+        {% for job in recent_jobs %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ job.vehicle_number }} — {{ job.customer_complaint|truncatechars:40 }}</span>
+            <span class="badge {% if job.status == 'COMPLETED' %}bg-success{% elif job.status == 'WAITING_FOR_PARTS' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+              {{ job.get_status_display }}
+            </span>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">No job cards yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-header">Restock Needed</div>
+      <ul class="list-group list-group-flush">
+        {% for item in low_stock_list %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ item.part_name }}</span>
+            <span class="badge bg-danger">{{ item.quantity }} left</span>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">All parts sufficiently stocked.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Job Cards — GarageNET{% endblock %}
+{% block content %}
+<h3 class="mb-3">Job Card Manager</h3>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header">New Job Card</div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create">
+          {% for field in form %}
+            <div class="mb-2">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          <button class="btn btn-dark w-100 mt-2" type="submit">Create job card</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Vehicle</th><th>Complaint</th><th>Bill</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for job in jobs %}
+              <tr>
+                <td class="fw-semibold">{{ job.vehicle_number }}</td>
+                <td>{{ job.customer_complaint|truncatechars:50 }}</td>
+                <td>₹{{ job.total_bill }}</td>
+                <td>
+                  <form method="post" class="d-flex gap-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_status">
+                    <input type="hidden" name="job_id" value="{{ job.pk }}">
+                    <select name="status" class="form-select form-select-sm">
+                      {% for value, label in status_form.fields.status.choices %}
+                        <option value="{{ value }}" {% if value == job.status %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-outline-dark" type="submit">Set</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-4">No job cards yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

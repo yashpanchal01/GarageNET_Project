@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Inventory — GarageNET{% endblock %}
+{% block content %}
+<h3 class="mb-3">Inventory Ledger</h3>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header">{% if editing %}Update Stock{% else %}Add Stock{% endif %}</div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% if editing %}<input type="hidden" name="edit" value="{{ editing.pk }}">{% endif %}
+          {% for field in form %}
+            <div class="mb-2">
+              <label class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          <button class="btn btn-dark w-100" type="submit">
+            {% if editing %}Save changes{% else %}Add item{% endif %}
+          </button>
+          {% if editing %}
+            <a href="{% url 'inventory' %}" class="btn btn-link w-100">Cancel</a>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Part</th><th>SKU</th><th>Qty</th><th>B2B Price</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr class="{% if item.quantity < low_stock_threshold %}table-danger{% endif %}">
+                <td>{{ item.part_name }}</td>
+                <td>{{ item.sku|default:'—' }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>₹{{ item.b2b_price }}</td>
+                <td class="text-end text-nowrap">
+                  <a href="?edit={{ item.pk }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                  <form method="post" class="d-inline"
+                        onsubmit="return confirm('Remove {{ item.part_name|escapejs }} from the ledger?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="item_id" value="{{ item.pk }}">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No parts in stock yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
