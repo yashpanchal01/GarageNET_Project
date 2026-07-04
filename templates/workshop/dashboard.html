@@ -39,7 +39,7 @@
         {% for job in recent_jobs %}
           <li class="list-group-item d-flex justify-content-between align-items-center">
             <span>{{ job.vehicle_number }} — {{ job.customer_complaint|truncatechars:40 }}</span>
-            <span class="badge {% if job.status == 'COMPLETED' %}bg-success{% elif job.status == 'WAITING_FOR_PARTS' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+            <span class="badge {% if job.status == 'READY' %}bg-success{% elif job.status == 'WAITING_FOR_PARTS' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
               {{ job.get_status_display }}
             </span>
           </li>

@@ -41,7 +41,7 @@ class JobCard(models.Model):
         RECEIVED = 'RECEIVED', 'Received'
         IN_PROGRESS = 'IN_PROGRESS', 'In-Progress'
         WAITING_FOR_PARTS = 'WAITING_FOR_PARTS', 'Waiting-for-Parts'
-        COMPLETED = 'COMPLETED', 'Completed'
+        READY = 'READY', 'Ready'
 
     workshop = models.ForeignKey(
         WorkshopProfile, on_delete=models.CASCADE, related_name='job_cards'

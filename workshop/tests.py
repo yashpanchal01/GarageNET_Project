@@ -79,7 +79,7 @@ class DashboardTests(TestCase):
         JobCard.objects.create(workshop=self.workshop, vehicle_number='MH12A1',
                                customer_complaint='x', status=JobCard.Status.IN_PROGRESS)
         JobCard.objects.create(workshop=self.workshop, vehicle_number='MH12A2',
-                               customer_complaint='x', status=JobCard.Status.COMPLETED)
+                               customer_complaint='x', status=JobCard.Status.READY)
         InventoryItem.objects.create(workshop=self.workshop, part_name='Oil Filter',
                                      quantity=1, b2b_price=100)
         InventoryItem.objects.create(workshop=self.workshop, part_name='Brake Pad',
@@ -142,10 +142,10 @@ class JobCardTests(TestCase):
         })
         job = JobCard.objects.get(vehicle_number='MH12AB1234')
         self.client.post(reverse('job_cards'), {
-            'action': 'update_status', 'job_id': job.pk, 'status': 'COMPLETED',
+            'action': 'update_status', 'job_id': job.pk, 'status': 'READY',
         })
         job.refresh_from_db()
-        self.assertEqual(job.status, JobCard.Status.COMPLETED)
+        self.assertEqual(job.status, JobCard.Status.READY)
 
 
 class PartSearchTests(TestCase):

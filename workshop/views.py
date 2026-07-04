@@ -79,7 +79,7 @@ def dashboard(request):
     context = {
         'workshop': workshop,
         'active_job_cards': workshop.job_cards.exclude(
-            status=JobCard.Status.COMPLETED
+            status=JobCard.Status.READY
         ).count(),
         'low_stock_items': low_stock.count(),
         'low_stock_list': low_stock[:8],
@@ -186,7 +186,11 @@ def part_search(request):
                 item.workshop.latitude,
                 item.workshop.longitude,
             )
-            results.append({'item': item, 'distance_km': round(distance, 1)})
+            results.append({
+                'item': item,
+                'profile': item.workshop,
+                'distance_km': round(distance, 1)
+            })
         results.sort(key=lambda r: r['distance_km'])
 
     context = {'workshop': workshop, 'query': query, 'results': results}
