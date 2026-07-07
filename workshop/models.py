@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -8,12 +9,19 @@ class WorkshopProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='workshop')
     shop_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=20)
-    latitude = models.FloatField(help_text='Decimal degrees, e.g. 18.5204')
-    longitude = models.FloatField(help_text='Decimal degrees, e.g. 73.8567')
+    latitude = models.FloatField(
+        validators=[MinValueValidator(-90.0), MaxValueValidator(90.0)],
+        help_text='Decimal degrees, e.g. 18.5204'
+    )
+    longitude = models.FloatField(
+        validators=[MinValueValidator(-180.0), MaxValueValidator(180.0)],
+        help_text='Decimal degrees, e.g. 73.8567'
+    )
     address = models.TextField(blank=True)
 
     def __str__(self):
         return self.shop_name
+
 
 
 class InventoryItem(models.Model):
@@ -69,6 +77,17 @@ class JobCard(models.Model):
         self.total_bill = total
         self.save(update_fields=['total_bill'])
 
+    def delete(self, *args, **kwargs):
+        from django.db import transaction
+        with transaction.atomic():
+            for item in self.line_items.all():
+                if item.inventory_item:
+                    from django.db.models import F
+                    InventoryItem.objects.filter(pk=item.inventory_item.pk).update(
+                        quantity=F('quantity') + item.quantity
+                    )
+            super().delete(*args, **kwargs)
+
 
 class JobCardLineItem(models.Model):
     """A single inventory item/part consumed on a vehicle's JobCard."""
@@ -90,4 +109,19 @@ class JobCardLineItem(models.Model):
 
     def __str__(self):
         return f'{self.part_name} (x{self.quantity}) on {self.job_card.vehicle_number}'
+
+    @property
+    def total_price(self):
+        return self.quantity * self.unit_price
+
+    def delete(self, *args, **kwargs):
+        from django.db import transaction
+        with transaction.atomic():
+            if self.inventory_item:
+                from django.db.models import F
+                InventoryItem.objects.filter(pk=self.inventory_item.pk).update(
+                    quantity=F('quantity') + self.quantity
+                )
+            super().delete(*args, **kwargs)
+
 

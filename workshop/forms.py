@@ -58,12 +58,10 @@ class InventoryItemForm(forms.ModelForm):
 class JobCardForm(forms.ModelForm):
     class Meta:
         model = JobCard
-        fields = ['vehicle_number', 'customer_complaint', 'status', 'total_bill']
+        fields = ['vehicle_number', 'customer_complaint']
         widgets = {
-            'vehicle_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'customer_complaint': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'status': forms.Select(attrs={'class': 'form-select'}),
-            'total_bill': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'vehicle_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. MH-12-AB-1234'}),
+            'customer_complaint': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Describe customer complaints...'}),
         }
 
 

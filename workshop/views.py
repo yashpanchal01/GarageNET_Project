@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -11,7 +12,7 @@ from .forms import (
     RegistrationForm,
     WorkshopProfileForm,
 )
-from .models import InventoryItem, JobCard, WorkshopProfile
+from .models import InventoryItem, JobCard, WorkshopProfile, JobCardLineItem
 from .utils import haversine_km
 
 LOW_STOCK_THRESHOLD = 2
@@ -53,7 +54,6 @@ def register(request):
 def profile(request):
     """Create or edit the logged-in user's workshop profile."""
     workshop = _get_workshop(request)
-
     if request.method == 'POST':
         form = WorkshopProfileForm(request.POST, instance=workshop)
         if form.is_valid():
@@ -135,7 +135,6 @@ def job_cards(request):
     workshop = _get_workshop(request)
     if workshop is None:
         return redirect('dashboard')
-
     action = request.POST.get('action')
     if request.method == 'POST' and action == 'create':
         form = JobCardForm(request.POST)
@@ -172,26 +171,169 @@ def part_search(request):
         return redirect('dashboard')
 
     query = request.GET.get('q', '').strip()
+    radius_str = request.GET.get('radius', '50').strip()
+    try:
+        radius = float(radius_str)
+    except ValueError:
+        radius = 50.0
+
     results = []
     if query:
+        import math
+        center_lat = workshop.latitude
+        center_lon = workshop.longitude
+
+        # Bounding box coordinates calculation
+        delta_lat = radius / 111.0
+        # Protect against division by zero/invalid cos arguments at poles
+        cos_lat = math.cos(math.radians(center_lat))
+        delta_lon = radius / (111.0 * cos_lat) if abs(cos_lat) > 0.001 else 360.0
+
+        min_lat = center_lat - delta_lat
+        max_lat = center_lat + delta_lat
+        min_lon = center_lon - delta_lon
+        max_lon = center_lon + delta_lon
+
+        # Build database expression for Haversine distance in SQL
+        from django.db.models import F
+        from django.db.models.functions import ASin, Cos, Radians, Sin, Sqrt
+
+        dlat = Radians(F('workshop__latitude') - center_lat)
+        dlon = Radians(F('workshop__longitude') - center_lon)
+        lat1 = Radians(center_lat)
+        lat2 = Radians(F('workshop__latitude'))
+
+        # a = sin^2(dlat/2) + cos(lat1)*cos(lat2)*sin^2(dlon/2)
+        a = (
+            Sin(dlat / 2.0) * Sin(dlat / 2.0) +
+            Cos(lat1) * Cos(lat2) * Sin(dlon / 2.0) * Sin(dlon / 2.0)
+        )
+        distance_expr = 2.0 * 6371.0 * ASin(Sqrt(a))
+
         matches = (
-            InventoryItem.objects.filter(part_name__icontains=query, quantity__gt=0)
+            InventoryItem.objects.filter(
+                part_name__icontains=query,
+                quantity__gt=0,
+                workshop__latitude__range=(min_lat, max_lat),
+                workshop__longitude__range=(min_lon, max_lon),
+            )
             .exclude(workshop=workshop)
             .select_related('workshop')
+            .annotate(distance_km=distance_expr)
+            .filter(distance_km__lte=radius)
+            .order_by('distance_km')
         )
+
         for item in matches:
-            distance = haversine_km(
-                workshop.latitude,
-                workshop.longitude,
-                item.workshop.latitude,
-                item.workshop.longitude,
-            )
             results.append({
                 'item': item,
                 'profile': item.workshop,
-                'distance_km': round(distance, 1)
+                'distance_km': round(item.distance_km, 1)
             })
-        results.sort(key=lambda r: r['distance_km'])
 
-    context = {'workshop': workshop, 'query': query, 'results': results}
+    context = {
+        'workshop': workshop,
+        'query': query,
+        'radius': radius,
+        'results': results,
+    }
     return render(request, 'workshop/part_search.html', context)
+
+
+@login_required
+def job_card_detail(request, pk):
+    """View details of a single Job Card, including line items and adding/removing parts."""
+    workshop = _get_workshop(request)
+    if workshop is None:
+        return redirect('dashboard')
+
+    job_card = get_object_or_404(JobCard, pk=pk, workshop=workshop)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add_part':
+            inventory_item_id = request.POST.get('inventory_item')
+            qty_str = request.POST.get('quantity', '1').strip()
+            try:
+                quantity = int(qty_str)
+                if quantity <= 0:
+                    raise ValueError
+            except ValueError:
+                messages.error(request, 'Please enter a valid positive quantity.')
+                return redirect('job_card_detail', pk=pk)
+
+            try:
+                with transaction.atomic():
+                    # Lock inventory item using select_for_update
+                    inventory_item = get_object_or_404(
+                        InventoryItem.objects.select_for_update(),
+                        pk=inventory_item_id,
+                        workshop=workshop
+                    )
+
+                    if inventory_item.quantity < quantity:
+                        raise ValidationError(
+                            f'Cannot add part. Only {inventory_item.quantity} items available in stock, but {quantity} were requested.'
+                        )
+
+                    # Deduct stock
+                    inventory_item.quantity -= quantity
+                    inventory_item.save(update_fields=['quantity'])
+
+                    # Create line item snapshot
+                    JobCardLineItem.objects.create(
+                        job_card=job_card,
+                        inventory_item=inventory_item,
+                        part_name=inventory_item.part_name,
+                        sku=inventory_item.sku,
+                        quantity=quantity,
+                        unit_price=inventory_item.b2b_price
+                    )
+
+                    # Recalculate bill total
+                    job_card.recalculate_total()
+                    messages.success(request, f'Added "{inventory_item.part_name}" to the job card.')
+            except ValidationError as e:
+                messages.error(request, e.message)
+            return redirect('job_card_detail', pk=pk)
+
+        elif action == 'remove_part':
+            line_item_id = request.POST.get('line_item_id')
+            try:
+                with transaction.atomic():
+                    line_item = get_object_or_404(
+                        JobCardLineItem,
+                        pk=line_item_id,
+                        job_card=job_card
+                    )
+                    part_name = line_item.part_name
+                    # Stock replenishment is handled automatically inside JobCardLineItem.delete()
+                    line_item.delete()
+
+                    # Recalculate bill total
+                    job_card.recalculate_total()
+                    messages.success(request, f'Removed "{part_name}" from the job card.')
+            except Exception:
+                messages.error(request, 'Failed to remove part.')
+            return redirect('job_card_detail', pk=pk)
+
+        elif action == 'update_status':
+            status_form = JobCardStatusForm(request.POST, instance=job_card)
+            if status_form.is_valid():
+                status_form.save()
+                messages.success(request, f'{job_card.vehicle_number} -> {job_card.get_status_display()}.')
+            return redirect('job_card_detail', pk=pk)
+
+    # Active inventory items only (quantity > 0)
+    inventory_items = workshop.inventory.filter(quantity__gt=0)
+    context = {
+        'workshop': workshop,
+        'job_card': job_card,
+        'line_items': job_card.line_items.all(),
+        'inventory_items': inventory_items,
+        'status_form': JobCardStatusForm(instance=job_card),
+    }
+    return render(request, 'workshop/job_card_detail.html', context)
+
+

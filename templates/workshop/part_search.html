@@ -1,45 +1,305 @@
 {% extends 'base.html' %}
-{% block title %}Part Search — GarageNET{% endblock %}
-{% block content %}
-<h3 class="mb-3">P2P Part Search</h3>
 
-<form method="get" class="mb-4">
-  <div class="input-group">
-    <input type="text" name="q" value="{{ query }}" class="form-control form-control-lg"
-           placeholder="Search a part name, e.g. brake pad" autofocus>
-    <button class="btn btn-dark" type="submit">Search</button>
+{% block title %}Part Search — GarageNET{% endblock %}
+
+{% block content %}
+<!-- Bootstrap Icons Link -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+  /* Table row hover and highlight */
+  .shop-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-left 0.2s ease;
+  }
+  .shop-row.table-active-highlight {
+    background-color: #f8f9fa !important;
+    border-left: 4px solid #0d6efd !important;
+  }
+  .search-table-card {
+    background: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.05);
+    border: 1px solid #eaecf4;
+  }
+  
+  /* Sticky map container */
+  .map-sticky {
+    position: sticky;
+    top: 20px;
+  }
+  
+  /* Pulse sweep effect for center marker */
+  @keyframes radar-pulse {
+    0% { transform: scale(0.9); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  .radar-ring {
+    transform-origin: center;
+    animation: radar-pulse 2s infinite ease-out;
+  }
+</style>
+
+<!-- Top Title Section -->
+<div class="mb-4 pb-2 border-bottom">
+  <h1 class="h3 fw-bold text-dark mb-1">P2P Part Search</h1>
+  <p class="text-muted">Find matching parts in neighboring workshops within your network.</p>
+</div>
+
+<!-- Search Input Form -->
+<form method="get" class="mb-4 bg-white p-4 rounded shadow-sm border">
+  <div class="row g-3 align-items-center">
+    <div class="col-md-6 col-sm-12">
+      <label class="form-label text-muted small fw-bold mb-1">Part Name</label>
+      <div class="input-group">
+        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" name="q" value="{{ query }}" class="form-control border-start-0"
+               placeholder="Search a part name, e.g. brake pad" autofocus required>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-12">
+      <label class="form-label text-muted small fw-bold mb-1">Search Radius</label>
+      <select name="radius" class="form-select">
+        <option value="10" {% if radius == 10 %}selected{% endif %}>Within 10 km</option>
+        <option value="25" {% if radius == 25 %}selected{% endif %}>Within 25 km</option>
+        <option value="50" {% if radius == 50 or not radius %}selected{% endif %}>Within 50 km</option>
+        <option value="100" {% if radius == 100 %}selected{% endif %}>Within 100 km</option>
+        <option value="200" {% if radius == 200 %}selected{% endif %}>Within 200 km</option>
+      </select>
+    </div>
+    <div class="col-md-2 col-sm-12 d-grid align-self-end">
+      <button class="btn btn-dark" type="submit" style="height: 38px;">Search</button>
+    </div>
   </div>
-  <div class="form-text">Shows the part in nearby workshops, sorted by distance from your shop.</div>
 </form>
 
 {% if query %}
-  <p class="text-muted">{{ results|length }} result{{ results|length|pluralize }} for "{{ query }}".</p>
-  <div class="card shadow-sm">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0 align-middle">
-        <thead class="table-light">
-          <tr><th>Distance</th><th>Workshop</th><th>Part</th><th>Qty</th><th>B2B Price</th><th>Contact</th></tr>
-        </thead>
-        <tbody>
-          {% for row in results %}
-            <tr>
-              <td><span class="badge bg-success">{{ row.distance_km }} km</span></td>
-              <td>{{ row.item.workshop.shop_name }}</td>
-              <td>{{ row.item.part_name }}</td>
-              <td>{{ row.item.quantity }}</td>
-              <td>₹{{ row.item.b2b_price }}</td>
-              <td>
-                {% with profile=row.profile %}
-                  <a href="tel:{{ profile.phone_number }}" class="btn btn-sm btn-outline-primary">Call Merchant</a>
-                {% endwith %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr><td colspan="6" class="text-center text-muted py-4">No other workshop has this part in stock.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- Count Details -->
+  <div class="mb-4 bg-light-subtle p-2 rounded">
+    <p class="text-muted mb-0 small"><i class="bi bi-info-circle me-1"></i>Found {{ results|length }} result{{ results|length|pluralize }} for "{{ query }}" within {{ radius }} km.</p>
+  </div>
+  
+  <div class="row">
+    <!-- Left Column: Compact Comparison Table (Width: 8) -->
+    <div class="col-lg-8 mb-4">
+      <div class="search-table-card">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-4">Proximity</th>
+                <th>Workshop Shop Name</th>
+                <th>Part Name (SKU)</th>
+                <th class="text-end">Stock Quantity</th>
+                <th class="text-end">B2B Price</th>
+                <th class="text-center pe-4">Quick Contact</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in results %}
+              <tr class="shop-row" id="shop-row-{{ forloop.counter0 }}">
+                <td class="ps-4">
+                  <span class="badge {% if row.distance_km <= 15 %}bg-success-subtle text-success border border-success-subtle{% elif row.distance_km <= 50 %}bg-warning-subtle text-warning border border-warning-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %}">
+                    {{ row.distance_km }} km away
+                  </span>
+                </td>
+                <td>
+                  <div class="fw-bold text-dark">{{ row.profile.shop_name }}</div>
+                  <div class="text-muted small"><i class="bi bi-geo-alt me-1"></i>{{ row.profile.address|default:"No address registered" }}</div>
+                </td>
+                <td>
+                  <div class="fw-semibold text-primary">{{ row.item.part_name }}</div>
+                  <div><span class="badge bg-secondary-subtle text-secondary font-monospace">{{ row.item.sku|default:"-" }}</span></div>
+                </td>
+                <td class="text-end">
+                  <span class="fw-bold {% if row.item.quantity < 3 %}text-danger{% else %}text-success{% endif %}">
+                    {{ row.item.quantity }} available
+                  </span>
+                </td>
+                <td class="text-end fw-bold text-dark font-monospace">₹{{ row.item.b2b_price }}</td>
+                <td class="text-center pe-4">
+                  <div class="d-flex justify-content-center gap-2">
+                    <a href="tel:{{ row.profile.phone_number }}" class="btn btn-sm btn-outline-primary" title="Call Shop">
+                      <i class="bi bi-telephone-fill"></i> Call
+                    </a>
+                    <a href="https://maps.google.com/?q={{ row.profile.latitude }},{{ row.profile.longitude }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="View Directions">
+                      <i class="bi bi-map-fill"></i> Route
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-5 text-muted">
+                  <i class="bi bi-slash-circle fs-2 d-block mb-2"></i>
+                  No matching parts found inside search radius.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Geospatial Radar Map (Width: 4) -->
+    <div class="col-lg-4 mb-4">
+      <div class="map-sticky card shadow-sm border-0 bg-white p-3">
+        <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-geo-fill me-1"></i>Proximity Radar Map</h5>
+        
+        <!-- SVG Vector Map Canvas -->
+        <div class="position-relative d-flex justify-content-center">
+          <svg id="mock-map-svg" width="100%" height="320" viewBox="0 0 350 350" class="bg-dark rounded shadow-sm">
+            <!-- Radar crosshairs -->
+            <line x1="175" y1="0" x2="175" y2="350" stroke="#495057" stroke-width="1" stroke-dasharray="2" />
+            <line x1="0" y1="175" x2="350" y2="175" stroke="#495057" stroke-width="1" stroke-dasharray="2" />
+            
+            <!-- Radar rings -->
+            <circle cx="175" cy="175" r="50" fill="none" stroke="#343a40" stroke-width="1.5" />
+            <circle cx="175" cy="175" r="95" fill="none" stroke="#343a40" stroke-width="1.5" />
+            <circle cx="175" cy="175" r="140" fill="none" stroke="#343a40" stroke-width="1.5" />
+            
+            <!-- Distance indicators -->
+            <text x="180" y="140" fill="#6c757d" font-size="8" font-family="monospace">15km</text>
+            <text x="180" y="95" fill="#6c757d" font-size="8" font-family="monospace">50km</text>
+            <text x="180" y="50" fill="#6c757d" font-size="8" font-family="monospace">{{ radius }}km</text>
+            <text x="180" y="15" fill="#495057" font-size="10" font-family="sans-serif" font-weight="bold">N</text>
+            <text x="330" y="171" fill="#495057" font-size="10" font-family="sans-serif" font-weight="bold">E</text>
+
+            <!-- Center Marker (Representing current workshop) -->
+            <circle cx="175" cy="175" r="8" fill="#dc3545" stroke="#fff" stroke-width="2" id="center-marker" />
+            <circle cx="175" cy="175" r="14" fill="none" stroke="#dc3545" stroke-width="1.5" opacity="0.6" class="radar-ring" style="transform-origin: 175px 175px;" />
+          </svg>
+
+          <!-- Marker Tooltip Overlay -->
+          <div id="map-tooltip-box" class="position-absolute bg-white rounded shadow p-2 border d-none" style="top: 15px; left: 15px; max-width: 250px; z-index: 10;">
+            <h6 class="fw-bold mb-1 small" id="map-tooltip-title">-</h6>
+            <div id="map-tooltip-desc" class="small">-</div>
+          </div>
+        </div>
+        
+        <!-- Map legend -->
+        <div class="mt-3 bg-light rounded p-2 text-center text-muted small">
+          <span class="badge bg-danger me-1">&nbsp;</span> Center (You)
+          <span class="badge bg-success ms-3 me-1">&nbsp;</span> Other Shops (Click to locate)
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- Javascript calculations to map lat/lon coordinates onto SVG grid -->
+  <script>
+    const resultsData = [
+      {% for row in results %}
+        {
+          id: "{{ forloop.counter0 }}",
+          shop_name: "{{ row.profile.shop_name|escapejs }}",
+          part_name: "{{ row.item.part_name|escapejs }}",
+          price: "₹{{ row.item.b2b_price }}",
+          qty: "{{ row.item.quantity }}",
+          distance: "{{ row.distance_km }}",
+          lat: {{ row.profile.latitude }},
+          lon: {{ row.profile.longitude }},
+          phone: "{{ row.profile.phone_number|escapejs }}",
+          address: "{{ row.profile.address|escapejs }}"
+        },
+      {% endfor %}
+    ];
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const mapSvg = document.getElementById("mock-map-svg");
+      if (!mapSvg) return;
+
+      const centerLat = {{ workshop.latitude }};
+      const centerLon = {{ workshop.longitude }};
+      const radius = {{ radius }};
+
+      // Radar math relative coordinate placement (center is 175, 175)
+      const mapRadiusPixels = 140; 
+      
+      resultsData.forEach((shop, index) => {
+        const latDiff = shop.lat - centerLat;
+        const cosLat = Math.cos(centerLat * Math.PI / 180.0);
+        const lonDiff = (shop.lon - centerLon) * cosLat;
+        
+        // Approximate distances in km
+        const dy_km = latDiff * 111.0;
+        const dx_km = lonDiff * 111.0;
+        
+        // Scale coordinate calculations
+        const scale = mapRadiusPixels / radius;
+        
+        const cx = 175 + (dx_km * scale);
+        const cy = 175 - (dy_km * scale);
+        
+        // Create circle marker node
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        marker.setAttribute("cx", cx);
+        marker.setAttribute("cy", cy);
+        marker.setAttribute("r", "9");
+        marker.setAttribute("fill", "#198754");
+        marker.setAttribute("stroke", "#ffffff");
+        marker.setAttribute("stroke-width", "2");
+        marker.setAttribute("id", `map-marker-${index}`);
+        marker.setAttribute("style", "cursor: pointer; transition: all 0.2s ease;");
+        
+        // Create dashed active sweep ring
+        const pulseRing = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        pulseRing.setAttribute("cx", cx);
+        pulseRing.setAttribute("cy", cy);
+        pulseRing.setAttribute("r", "15");
+        pulseRing.setAttribute("fill", "none");
+        pulseRing.setAttribute("stroke", "#0d6efd");
+        pulseRing.setAttribute("stroke-width", "2");
+        pulseRing.setAttribute("stroke-dasharray", "4");
+        pulseRing.setAttribute("opacity", "0");
+        pulseRing.setAttribute("id", `map-pulse-${index}`);
+        pulseRing.setAttribute("style", "transition: all 0.2s ease;");
+        
+        mapSvg.appendChild(pulseRing);
+        mapSvg.appendChild(marker);
+        
+        const rowEl = document.getElementById(`shop-row-${index}`);
+        
+        function highlightShop() {
+          // Reset highlights
+          document.querySelectorAll("#mock-map-svg circle[fill='#0d6efd']").forEach(c => {
+            c.setAttribute("fill", "#198754");
+            c.setAttribute("r", "9");
+          });
+          document.querySelectorAll("#mock-map-svg circle[stroke-dasharray='4']").forEach(p => {
+            p.setAttribute("opacity", "0");
+          });
+          document.querySelectorAll(".shop-row").forEach(r => {
+            r.classList.remove("table-active-highlight");
+          });
+          
+          // Apply highlights
+          marker.setAttribute("fill", "#0d6efd");
+          marker.setAttribute("r", "11");
+          pulseRing.setAttribute("opacity", "0.75");
+          
+          if (rowEl) {
+            rowEl.classList.add("table-active-highlight");
+            rowEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          
+          // Display overlay popup info box
+          document.getElementById("map-tooltip-title").textContent = shop.shop_name;
+          document.getElementById("map-tooltip-desc").innerHTML = `
+            <span class="d-block text-primary fw-bold">${shop.part_name}</span>
+            <span class="d-block text-secondary small">Stock: ${shop.qty} | Price: ${shop.price}</span>
+            <span class="d-block text-muted small mt-1"><i class="bi bi-geo-alt"></i> ${shop.distance} km away</span>
+          `;
+          document.getElementById("map-tooltip-box").classList.remove("d-none");
+        }
+        
+        marker.addEventListener("click", highlightShop);
+        if (rowEl) {
+          rowEl.addEventListener("click", highlightShop);
+        }
+      });
+    });
+  </script>
 {% endif %}
 {% endblock %}

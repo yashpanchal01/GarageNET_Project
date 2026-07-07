@@ -1,58 +1,102 @@
 {% extends 'base.html' %}
+
 {% block title %}Job Cards — GarageNET{% endblock %}
+
 {% block content %}
-<h3 class="mb-3">Job Card Manager</h3>
+<!-- Bootstrap Icons Link -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+  /* Premium card styling */
+  .jobs-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.05);
+    border: 1px solid #eaecf4;
+    background: #ffffff;
+  }
+</style>
+
+<!-- Top Title bar -->
+<div class="mb-4 pb-2 border-bottom">
+  <h1 class="h3 fw-bold text-dark mb-1">Job Card Manager</h1>
+  <p class="text-muted mb-0">Check-in customer vehicles, log customer complaints, and track repair cycles.</p>
+</div>
 
 <div class="row g-4">
+  <!-- Left Column: Add Job Form (Width: 4) -->
   <div class="col-lg-4">
-    <div class="card shadow-sm">
-      <div class="card-header">New Job Card</div>
+    <div class="card jobs-card">
+      <div class="card-header bg-white py-3">
+        <h5 class="fw-bold text-secondary mb-0"><i class="bi bi-clipboard-plus me-1"></i>New Job Card</h5>
+      </div>
       <div class="card-body">
         <form method="post" novalidate>
           {% csrf_token %}
           <input type="hidden" name="action" value="create">
           {% for field in form %}
-            <div class="mb-2">
-              <label class="form-label">{{ field.label }}</label>
+            <div class="mb-3">
+              <label class="form-label text-muted small fw-bold mb-1">{{ field.label }}</label>
               {{ field }}
               {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </div>
           {% endfor %}
-          <button class="btn btn-dark w-100 mt-2" type="submit">Create job card</button>
+          <button class="btn btn-dark w-100 btn-sm py-2" type="submit">Create Job Card</button>
         </form>
       </div>
     </div>
   </div>
 
+  <!-- Right Column: Jobs Table List (Width: 8) -->
   <div class="col-lg-8">
-    <div class="card shadow-sm">
+    <div class="mb-3">
+      <div class="input-group">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="ledger-search" class="form-control border-start-0" placeholder="Search job cards by vehicle or customer details...">
+      </div>
+    </div>
+
+    <div class="card jobs-card">
       <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
+        <table class="table table-hover align-middle mb-0" id="ledger-table">
           <thead class="table-light">
-            <tr><th>Vehicle</th><th>Complaint</th><th>Bill</th><th>Status</th></tr>
+            <tr>
+              <th class="ps-4">Vehicle Number</th>
+              <th>Customer Name</th>
+              <th>Complaint Summary</th>
+              <th class="text-end">Billing</th>
+              <th class="text-center pe-4" style="width: 220px;">Status Transition</th>
+            </tr>
           </thead>
           <tbody>
             {% for job in jobs %}
-              <tr>
-                <td class="fw-semibold">{{ job.vehicle_number }}</td>
-                <td>{{ job.customer_complaint|truncatechars:50 }}</td>
-                <td>₹{{ job.total_bill }}</td>
-                <td>
-                  <form method="post" class="d-flex gap-1">
+              <tr class="ledger-row">
+                <td class="ps-4 font-monospace fw-bold">
+                  <a href="{% url 'job_card_detail' job.pk %}" class="text-decoration-none text-primary">{{ job.vehicle_number }} <i class="bi bi-link-45deg"></i></a>
+                </td>
+                <td class="small text-dark">{{ job.customer_name|default:"-" }}</td>
+                <td class="text-muted small">{{ job.customer_complaint|truncatechars:40 }}</td>
+                <td class="text-end fw-semibold text-dark font-monospace">₹{{ job.total_bill }}</td>
+                <td class="pe-4">
+                  <form method="post" class="d-flex gap-1 justify-content-end">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="update_status">
                     <input type="hidden" name="job_id" value="{{ job.pk }}">
-                    <select name="status" class="form-select form-select-sm">
+                    <select name="status" class="form-select form-select-sm" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">
                       {% for value, label in status_form.fields.status.choices %}
                         <option value="{{ value }}" {% if value == job.status %}selected{% endif %}>{{ label }}</option>
                       {% endfor %}
                     </select>
-                    <button class="btn btn-sm btn-outline-dark" type="submit">Set</button>
+                    <button class="btn btn-sm btn-outline-dark px-2 py-0" type="submit" style="font-size: 0.8rem;">Set</button>
                   </form>
                 </td>
               </tr>
             {% empty %}
-              <tr><td colspan="4" class="text-center text-muted py-4">No job cards yet.</td></tr>
+              <tr>
+                <td colspan="5" class="text-center text-muted py-5">
+                  <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                  No active job cards logged yet.
+                </td>
+              </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -60,4 +104,19 @@
     </div>
   </div>
 </div>
+
+<!-- Script to search ledger dynamically in browser -->
+<script>
+  document.getElementById('ledger-search')?.addEventListener('input', function(e) {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.ledger-row').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes(q)) {
+        row.classList.remove('d-none');
+      } else {
+        row.classList.add('d-none');
+      }
+    });
+  });
+</script>
 {% endblock %}

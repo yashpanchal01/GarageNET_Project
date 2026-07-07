@@ -1,27 +1,193 @@
 {% extends 'base.html' %}
-{% block title %}Workshop Profile — GarageNET{% endblock %}
+
+{% block title %}Workshop Profile Settings — GarageNET{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
-    <div class="card shadow-sm">
-      <div class="card-header">
-        {% if workshop %}Edit Workshop Profile{% else %}Set Up Your Workshop{% endif %}
+<!-- Bootstrap Icons Link -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+  /* Premium layout card styling */
+  .profile-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.05);
+    border: 1px solid #eaecf4;
+    background: #ffffff;
+  }
+  
+  /* Section dividers */
+  .section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    color: #4e73df;
+    margin-bottom: 1rem;
+    border-bottom: 1.5px solid #eaecf4;
+    padding-bottom: 0.35rem;
+  }
+
+  /* SVG map grid canvas container */
+  .visual-grid {
+    position: relative;
+    background-color: #1e1e24;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    height: 280px;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+  }
+</style>
+
+<!-- Top Title bar -->
+<div class="mb-4 pb-2 border-bottom">
+  <h1 class="h3 fw-bold text-dark mb-1">Workshop Settings</h1>
+  <p class="text-muted mb-0">Configure your automobile shop profile and geographical location coordinates on the parts network.</p>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column: Split/Grouped Form Settings (Width: 8) -->
+  <div class="col-lg-8">
+    <div class="card profile-card p-4">
+      <h4 class="fw-bold text-dark mb-4"><i class="bi bi-gear-fill me-2 text-secondary"></i>Account Configuration</h4>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        
+        <!-- Section 1: Workshop Branding -->
+        <div class="section-title"><i class="bi bi-shop me-1"></i>Workshop Branding & Contact</div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label class="form-label text-muted small fw-bold mb-1">Shop Name</label>
+            {{ form.shop_name }}
+            {% for error in form.shop_name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted small fw-bold mb-1">Contact Phone</label>
+            {{ form.phone_number }}
+            {% for error in form.phone_number.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-12">
+            <label class="form-label text-muted small fw-bold mb-1">Workshop Address</label>
+            {{ form.address }}
+            {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <!-- Section 2: Geospatial Coordinates -->
+        <div class="section-title"><i class="bi bi-geo-alt me-1"></i>Geospatial Network Coordinates</div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label class="form-label text-muted small fw-bold mb-1">Latitude</label>
+            {{ form.latitude }}
+            <div class="form-text small text-muted">Pune region latitude (e.g. 18.5204)</div>
+            {% for error in form.latitude.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted small fw-bold mb-1">Longitude</label>
+            {{ form.longitude }}
+            <div class="form-text small text-muted">Pune region longitude (e.g. 73.8567)</div>
+            {% for error in form.longitude.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 border-top pt-3">
+          <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm px-4">Cancel</a>
+          <button type="submit" class="btn btn-dark btn-sm px-4"><i class="bi bi-save me-1"></i>Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Column: Interactive Map Preview & Guidelines (Width: 4) -->
+  <div class="col-lg-4">
+    <div class="d-flex flex-column gap-4 h-100">
+      
+      <!-- Interactive Placement Preview Card -->
+      <div class="card profile-card p-3">
+        <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-map-fill me-1"></i>Placement Map Preview</h5>
+        
+        <div class="visual-grid d-flex align-items-center justify-content-center">
+          <svg width="100%" height="280" viewBox="0 0 300 300" id="visual-grid-svg">
+            <!-- Grid lines -->
+            <line x1="150" y1="0" x2="150" y2="300" stroke="#2d3748" stroke-width="1.5" stroke-dasharray="3" />
+            <line x1="0" y1="150" x2="300" y2="150" stroke="#2d3748" stroke-width="1.5" stroke-dasharray="3" />
+            <circle cx="150" cy="150" r="50" fill="none" stroke="#2d3748" stroke-width="1" />
+            <circle cx="150" cy="150" r="100" fill="none" stroke="#2d3748" stroke-width="1" />
+            
+            <!-- Reference Region Center (Pune Center Coordinates) -->
+            <circle cx="150" cy="150" r="4" fill="#3182ce" />
+            <text x="156" y="154" fill="#a0aec0" font-size="8" font-family="monospace">Pune Center</text>
+
+            <!-- Dynamic Workshop Location Pin -->
+            <g id="map-pin" transform="translate(150, 150)">
+              <circle cx="0" cy="0" r="12" fill="none" stroke="#e53e3e" stroke-width="2" opacity="0.6" />
+              <circle cx="0" cy="0" r="6" fill="#e53e3e" stroke="#fff" stroke-width="1.5" />
+              <text x="12" y="4" fill="#fc8181" font-size="9" font-family="sans-serif" font-weight="bold" id="pin-label">You</text>
+            </g>
+          </svg>
+          
+          <!-- Coordinates telemetry badge -->
+          <div class="position-absolute bg-dark text-white rounded p-2 small border" style="bottom: 12px; left: 12px; background: rgba(30,30,36,0.9); border-color: #2d3748;">
+            <div class="fw-bold mb-1 text-primary" style="font-size: 0.75rem;"><i class="bi bi-geo-alt-fill me-1"></i>Active Offset Coords</div>
+            <div class="font-monospace text-muted" id="offset-stats" style="font-size: 0.7rem;">Lat: -, Lon: -</div>
+          </div>
+        </div>
       </div>
-      <div class="card-body">
-        <form method="post" novalidate>
-          {% csrf_token %}
-          {% for field in form %}
-            <div class="mb-2">
-              <label class="form-label">{{ field.label }}</label>
-              {{ field }}
-              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-          {% endfor %}
-          <button type="submit" class="btn btn-dark w-100 mt-2">Save profile</button>
-        </form>
+
+      <!-- Geospatial Guidelines Info Card -->
+      <div class="card profile-card p-3 bg-light">
+        <h5 class="fw-bold text-secondary mb-3"><i class="bi-info-circle me-1"></i>Network Guidelines</h5>
+        <p class="text-muted small mb-3">GarageNET connects automobile workshops in a peer-to-peer parts network using coordinate calculations.</p>
+        <div class="p-3 bg-white rounded border">
+          <h6 class="fw-bold text-dark small mb-2"><i class="bi bi-radar me-1 text-primary"></i>Why coordinates matter:</h6>
+          <p class="text-secondary small mb-0">When neighboring shops search for a replacement part, our search backend calculates bounding boxes and Haversine distances based on your coordinates to verify proximity.</p>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
+
+<!-- Dynamic Map coordinates scripts -->
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const latInput = document.querySelector("input[name='latitude']");
+    const lonInput = document.querySelector("input[name='longitude']");
+    const pinNode = document.getElementById("map-pin");
+    const statsNode = document.getElementById("offset-stats");
+    
+    const refLat = 18.5204;
+    const refLon = 73.8567;
+    
+    function updatePin() {
+      if (!latInput || !lonInput) return;
+      const latVal = parseFloat(latInput.value);
+      const lonVal = parseFloat(lonInput.value);
+      
+      if (isNaN(latVal) || isNaN(lonVal)) return;
+      
+      // Offset mapping: 1 degree latitude = 111km, longitude = 105km. We scale it
+      const dy = latVal - refLat;
+      const dx = lonVal - refLon;
+      
+      // Scale factor: 1 degree diff = 200 pixels
+      const scale = 200;
+      
+      const px = 150 + (dx * scale);
+      const py = 150 - (dy * scale);
+      
+      // Clamp to fit SVG bounds (0-300)
+      const cx = Math.max(10, Math.min(290, px));
+      const cy = Math.max(10, Math.min(290, py));
+      
+      pinNode.setAttribute("transform", `translate(${cx}, ${cy})`);
+      statsNode.textContent = `Lat: ${latVal.toFixed(4)}, Lon: ${lonVal.toFixed(4)}`;
+    }
+    
+    if (latInput && lonInput) {
+      latInput.addEventListener("input", updatePin);
+      lonInput.addEventListener("input", updatePin);
+      updatePin(); // Initial run
+    }
+  });
+</script>
 {% endblock %}

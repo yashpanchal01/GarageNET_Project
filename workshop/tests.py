@@ -147,6 +147,84 @@ class JobCardTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, JobCard.Status.READY)
 
+    def test_cannot_transition_status_of_another_workshops_job_card(self):
+        # Create another workshop and a job card belonging to it
+        _, other_workshop = make_workshop('shop_b', 19.0, 72.8)
+        other_job = JobCard.objects.create(
+            workshop=other_workshop,
+            vehicle_number='MH14ZZ9999',
+            customer_complaint='Engine check light',
+            status=JobCard.Status.RECEIVED
+        )
+        
+        # Logged in as shop_a, try to transition shop_b's job card status
+        response = self.client.post(reverse('job_cards'), {
+            'action': 'update_status', 'job_id': other_job.pk, 'status': 'READY'
+        })
+        
+        # Verify it returns 404
+        self.assertEqual(response.status_code, 404)
+        
+        # Verify the status did not change
+        other_job.refresh_from_db()
+        self.assertEqual(other_job.status, JobCard.Status.RECEIVED)
+
+    def test_create_job_card_with_invalid_data_fails(self):
+        # Post to create with empty vehicle number
+        response = self.client.post(reverse('job_cards'), {
+            'action': 'create',
+            'vehicle_number': '',
+            'customer_complaint': 'Squeaking noise'
+        })
+        
+        # Verify it doesn't redirect (since it re-renders the form with errors)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify no JobCard is created in the database
+        self.assertEqual(JobCard.objects.count(), 0)
+        
+        # Verify form errors exist in context
+        self.assertTrue('form' in response.context)
+        self.assertTrue(response.context['form'].errors)
+
+    def test_job_cards_view_redirects_if_profile_missing(self):
+        # Create a user without workshop profile
+        User.objects.create_user('noshop_temp', password='pass12345')
+        self.client.login(username='noshop_temp', password='pass12345')
+        
+        # Access job cards page
+        response = self.client.get(reverse('job_cards'))
+        
+        # Should redirect to dashboard, which redirects to profile
+        self.assertRedirects(response, reverse('dashboard'), target_status_code=302)
+
+    def test_job_cards_page_lists_only_own_jobs(self):
+        # Create a job card for self (shop_a)
+        JobCard.objects.create(
+            workshop=self.workshop,
+            vehicle_number='MH12AA1111',
+            customer_complaint='Engine tune-up',
+            status=JobCard.Status.RECEIVED
+        )
+        
+        # Create another workshop and a job card belonging to it
+        _, other_workshop = make_workshop('shop_b', 19.0, 72.8)
+        JobCard.objects.create(
+            workshop=other_workshop,
+            vehicle_number='MH14BB2222',
+            customer_complaint='Air conditioning repair',
+            status=JobCard.Status.RECEIVED
+        )
+        
+        # Get the job cards page
+        response = self.client.get(reverse('job_cards'))
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify that own job is in jobs context, but other shop's job is not
+        jobs_in_context = response.context['jobs']
+        self.assertTrue(any(j.vehicle_number == 'MH12AA1111' for j in jobs_in_context))
+        self.assertFalse(any(j.vehicle_number == 'MH14BB2222' for j in jobs_in_context))
+
 
 class PartSearchTests(TestCase):
     def setUp(self):
@@ -160,7 +238,7 @@ class PartSearchTests(TestCase):
                                      quantity=2, b2b_price=1100)
         InventoryItem.objects.create(workshop=self.mumbai, part_name='Brake Pad',
                                      quantity=5, b2b_price=1200)
-        resp = self.client.get(reverse('part_search'), {'q': 'brake'})
+        resp = self.client.get(reverse('part_search'), {'q': 'brake', 'radius': '200'})
         results = resp.context['results']
         self.assertEqual(len(results), 2)
         # Mumbai (~120 km) is closer to Pune than Nashik (~165 km).
@@ -172,5 +250,172 @@ class PartSearchTests(TestCase):
                                      quantity=5, b2b_price=1000)
         InventoryItem.objects.create(workshop=self.mumbai, part_name='Brake Pad',
                                      quantity=0, b2b_price=1200)
-        resp = self.client.get(reverse('part_search'), {'q': 'brake'})
+        resp = self.client.get(reverse('part_search'), {'q': 'brake', 'radius': '200'})
         self.assertEqual(resp.context['results'], [])
+
+
+class JobCardBillingAndStockTests(TestCase):
+    def setUp(self):
+        self.user, self.workshop = make_workshop('shop_a', 18.52, 73.85)
+        self.client.login(username='shop_a', password='pass12345')
+        self.inventory_item = InventoryItem.objects.create(
+            workshop=self.workshop,
+            part_name='Spark Plug',
+            sku='SP1',
+            quantity=10,
+            b2b_price=99.50
+        )
+        self.job_card = JobCard.objects.create(
+            workshop=self.workshop,
+            vehicle_number='MH12A1',
+            customer_complaint='Spark plug issue',
+            status=JobCard.Status.RECEIVED
+        )
+
+    def test_add_part_deducts_stock_and_calculates_bill(self):
+        # Add 3 spark plugs
+        self.client.post(
+            reverse('job_card_detail', args=[self.job_card.pk]),
+            {'action': 'add_part', 'inventory_item': self.inventory_item.pk, 'quantity': '3'}
+        )
+        self.inventory_item.refresh_from_db()
+        self.job_card.refresh_from_db()
+
+        self.assertEqual(self.inventory_item.quantity, 7)
+        self.assertEqual(float(self.job_card.total_bill), 298.50)  # 3 * 99.50
+
+        # Verify line item was created with snapshot values
+        line_item = self.job_card.line_items.first()
+        self.assertEqual(line_item.part_name, 'Spark Plug')
+        self.assertEqual(float(line_item.unit_price), 99.50)
+
+    def test_out_of_stock_validation_blocks_and_rolls_back(self):
+        # Try adding 11 spark plugs (only 10 in stock)
+        self.client.post(
+            reverse('job_card_detail', args=[self.job_card.pk]),
+            {'action': 'add_part', 'inventory_item': self.inventory_item.pk, 'quantity': '11'}
+        )
+        self.inventory_item.refresh_from_db()
+        self.job_card.refresh_from_db()
+
+        self.assertEqual(self.inventory_item.quantity, 10)
+        self.assertEqual(float(self.job_card.total_bill), 0.0)
+        self.assertEqual(self.job_card.line_items.count(), 0)
+
+    def test_remove_part_replenishes_stock_and_recalculates_bill(self):
+        # First, add a part
+        self.client.post(
+            reverse('job_card_detail', args=[self.job_card.pk]),
+            {'action': 'add_part', 'inventory_item': self.inventory_item.pk, 'quantity': '4'}
+        )
+        self.inventory_item.refresh_from_db()
+        self.assertEqual(self.inventory_item.quantity, 6)
+
+        line_item = self.job_card.line_items.first()
+
+        # Remove the part
+        self.client.post(
+            reverse('job_card_detail', args=[self.job_card.pk]),
+            {'action': 'remove_part', 'line_item_id': line_item.pk}
+        )
+        self.inventory_item.refresh_from_db()
+        self.job_card.refresh_from_db()
+
+        self.assertEqual(self.inventory_item.quantity, 10)
+        self.assertEqual(float(self.job_card.total_bill), 0.0)
+        self.assertEqual(self.job_card.line_items.count(), 0)
+
+    def test_billing_snapshot_preserves_invoice_integrity(self):
+        # Add 2 spark plugs at 99.50
+        self.client.post(
+            reverse('job_card_detail', args=[self.job_card.pk]),
+            {'action': 'add_part', 'inventory_item': self.inventory_item.pk, 'quantity': '2'}
+        )
+
+        # Change the master catalog price in inventory
+        self.inventory_item.b2b_price = 150.00
+        self.inventory_item.save()
+
+        self.job_card.refresh_from_db()
+        self.assertEqual(float(self.job_card.total_bill), 199.00)  # Should still be 2 * 99.50
+
+        # Delete catalog item entirely
+        self.inventory_item.delete()
+
+        self.job_card.refresh_from_db()
+        # Bill total should still be 199.00 and line item should still exist
+        self.assertEqual(float(self.job_card.total_bill), 199.00)
+        line_item = self.job_card.line_items.first()
+        self.assertIsNotNone(line_item)
+        self.assertIsNone(line_item.inventory_item)
+        self.assertEqual(line_item.part_name, 'Spark Plug')
+
+
+class ProfileModelTests(TestCase):
+    def test_model_validates_latitude_range(self):
+        user = User.objects.create_user('test_validator_user', password='pass12345')
+        profile = WorkshopProfile(
+            user=user,
+            shop_name='Test Shop',
+            phone_number='1234',
+            latitude=95.0,  # Invalid latitude
+            longitude=73.0,
+            address='Addr'
+        )
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            profile.full_clean()
+
+    def test_model_validates_longitude_range(self):
+        user = User.objects.create_user('test_validator_user2', password='pass12345')
+        profile = WorkshopProfile(
+            user=user,
+            shop_name='Test Shop',
+            phone_number='1234',
+            latitude=18.0,
+            longitude=190.0,  # Invalid longitude
+            address='Addr'
+        )
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            profile.full_clean()
+
+
+class ProfileViewTests(TestCase):
+    def setUp(self):
+        self.user, self.profile = make_workshop('shop_a', 18.52, 73.85)
+        self.client.login(username='shop_a', password='pass12345')
+
+    def test_get_profile_page_returns_populated_form(self):
+        resp = self.client.get(reverse('profile'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'shop_a')
+        self.assertContains(resp, '18.52')
+        self.assertContains(resp, '73.85')
+
+    def test_post_profile_updates_data_and_redirects(self):
+        resp = self.client.post(reverse('profile'), {
+            'shop_name': 'Updated Shop Name',
+            'phone_number': '9999999999',
+            'latitude': '19.0760',
+            'longitude': '72.8777',
+            'address': 'Bandra, Mumbai',
+        })
+        self.assertRedirects(resp, reverse('dashboard'))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.shop_name, 'Updated Shop Name')
+        self.assertEqual(self.profile.latitude, 19.0760)
+
+    def test_post_profile_with_invalid_coords_fails(self):
+        resp = self.client.post(reverse('profile'), {
+            'shop_name': 'Updated Shop Name',
+            'phone_number': '9999999999',
+            'latitude': '120.0',  # invalid
+            'longitude': '72.8777',
+            'address': 'Bandra, Mumbai',
+        })
+        self.assertEqual(resp.status_code, 200)  # Form errors, re-renders page
+        self.profile.refresh_from_db()
+        self.assertNotEqual(self.profile.latitude, 120.0)  # Not updated
+
+

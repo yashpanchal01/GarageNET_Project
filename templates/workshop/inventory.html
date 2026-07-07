@@ -1,68 +1,132 @@
 {% extends 'base.html' %}
-{% block title %}Inventory — GarageNET{% endblock %}
+
+{% block title %}Inventory Ledger — GarageNET{% endblock %}
+
 {% block content %}
-<h3 class="mb-3">Inventory Ledger</h3>
+<!-- Bootstrap Icons Link -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+  /* Premium catalog card styling */
+  .inventory-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.05);
+    border: 1px solid #eaecf4;
+    background: #ffffff;
+  }
+  
+  /* Pulse glow for low stock parts */
+  @keyframes red-glow-pulse {
+    0% { box-shadow: 0 0 0 0px rgba(220, 53, 69, 0.2); }
+    100% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+  }
+  .glow-red {
+    border: 1.5px solid rgba(220, 53, 69, 0.4) !important;
+    animation: red-glow-pulse 2s infinite ease-in-out;
+  }
+</style>
+
+<!-- Top Title bar -->
+<div class="mb-4 pb-2 border-bottom">
+  <h1 class="h3 fw-bold text-dark mb-1">Parts Inventory Ledger</h1>
+  <p class="text-muted mb-0">Record, update, and manage your B2B parts stock catalog.</p>
+</div>
 
 <div class="row g-4">
+  <!-- Left Grid Area: Catalog cards (Width: 8) -->
+  <div class="col-lg-8">
+    <div class="mb-3">
+      <div class="input-group">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="catalog-search" class="form-control border-start-0" placeholder="Search stock catalog by part name or SKU...">
+      </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-3 g-3" id="catalog-grid">
+      {% for item in items %}
+        <div class="col catalog-item-card">
+          <div class="card h-100 inventory-card {% if item.quantity < low_stock_threshold %}glow-red{% endif %}">
+            <div class="card-body">
+              <h6 class="fw-bold text-dark mb-1 text-truncate" title="{{ item.part_name }}">{{ item.part_name }}</h6>
+              <span class="badge bg-secondary-subtle text-secondary font-monospace mb-3">{{ item.sku|default:"no-sku" }}</span>
+              
+              <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                  <span class="text-muted small d-block">Price:</span>
+                  <span class="fw-bold text-dark font-monospace">₹{{ item.b2b_price }}</span>
+                </div>
+                <div class="text-end">
+                  <span class="text-muted small d-block">Quantity:</span>
+                  <span class="badge {% if item.quantity == 0 %}bg-danger{% elif item.quantity < low_stock_threshold %}bg-warning text-dark{% else %}bg-success{% endif %} fs-6 font-monospace">
+                    {{ item.quantity }} units
+                  </span>
+                </div>
+              </div>
+
+              <div class="d-flex gap-1 border-top pt-2 mt-2">
+                <a href="?edit={{ item.pk }}" class="btn btn-sm btn-outline-secondary flex-grow-1"><i class="bi bi-pencil"></i> Edit</a>
+                <form method="post" class="d-inline flex-grow-1" onsubmit="return confirm('Remove {{ item.part_name|escapejs }} from the ledger?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="item_id" value="{{ item.pk }}">
+                  <button class="btn btn-sm btn-outline-danger w-100" type="submit"><i class="bi bi-trash"></i> Delete</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="col-12">
+          <div class="alert alert-info text-center py-5">
+            <i class="bi bi-box fs-2 d-block mb-2"></i>
+            No parts logged in stock yet. Use the form on the right to register stock.
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Right Sidebar: Add/Edit Stock Form (Width: 4) -->
   <div class="col-lg-4">
-    <div class="card shadow-sm">
-      <div class="card-header">{% if editing %}Update Stock{% else %}Add Stock{% endif %}</div>
+    <div class="card inventory-card">
+      <div class="card-header bg-white py-3">
+        <h5 class="fw-bold text-secondary mb-0">{% if editing %}Update Stock Item{% else %}Register Stock{% endif %}</h5>
+      </div>
       <div class="card-body">
         <form method="post" novalidate>
           {% csrf_token %}
           {% if editing %}<input type="hidden" name="edit" value="{{ editing.pk }}">{% endif %}
           {% for field in form %}
-            <div class="mb-2">
-              <label class="form-label">{{ field.label }}</label>
+            <div class="mb-3">
+              <label class="form-label text-muted small fw-bold mb-1">{{ field.label }}</label>
               {{ field }}
               {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </div>
           {% endfor %}
-          <button class="btn btn-dark w-100" type="submit">
-            {% if editing %}Save changes{% else %}Add item{% endif %}
+          <button class="btn btn-dark w-100 btn-sm py-2" type="submit">
+            {% if editing %}<i class="bi bi-save me-1"></i> Save Changes{% else %}<i class="bi bi-plus-lg me-1"></i> Add to Ledger{% endif %}
           </button>
           {% if editing %}
-            <a href="{% url 'inventory' %}" class="btn btn-link w-100">Cancel</a>
+            <a href="{% url 'inventory' %}" class="btn btn-link w-100 btn-sm mt-1">Cancel</a>
           {% endif %}
         </form>
       </div>
     </div>
   </div>
-
-  <div class="col-lg-8">
-    <div class="card shadow-sm">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Part</th><th>SKU</th><th>Qty</th><th>B2B Price</th><th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in items %}
-              <tr class="{% if item.quantity < low_stock_threshold %}table-danger{% endif %}">
-                <td>{{ item.part_name }}</td>
-                <td>{{ item.sku|default:'—' }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>₹{{ item.b2b_price }}</td>
-                <td class="text-end text-nowrap">
-                  <a href="?edit={{ item.pk }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                  <form method="post" class="d-inline"
-                        onsubmit="return confirm('Remove {{ item.part_name|escapejs }} from the ledger?');">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="item_id" value="{{ item.pk }}">
-                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-                  </form>
-                </td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="5" class="text-center text-muted py-4">No parts in stock yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </div>
+
+<!-- Script to search catalog dynamically in browser -->
+<script>
+  document.getElementById('catalog-search')?.addEventListener('input', function(e) {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.catalog-item-card').forEach(col => {
+      const text = col.textContent.toLowerCase();
+      if (text.includes(q)) {
+        col.classList.remove('d-none');
+      } else {
+        col.classList.add('d-none');
+      }
+    });
+  });
+</script>
 {% endblock %}
