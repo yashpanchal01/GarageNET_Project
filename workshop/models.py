@@ -59,3 +59,35 @@ class JobCard(models.Model):
 
     def __str__(self):
         return f'{self.vehicle_number} [{self.get_status_display()}]'
+
+    def recalculate_total(self):
+        """Recalculate total bill from all line items and save."""
+        from django.db.models import F, Sum
+        total = self.line_items.aggregate(
+            total=Sum(F('quantity') * F('unit_price'), output_field=models.DecimalField())
+        )['total'] or 0
+        self.total_bill = total
+        self.save(update_fields=['total_bill'])
+
+
+class JobCardLineItem(models.Model):
+    """A single inventory item/part consumed on a vehicle's JobCard."""
+
+    job_card = models.ForeignKey(
+        JobCard, on_delete=models.CASCADE, related_name='line_items'
+    )
+    inventory_item = models.ForeignKey(
+        InventoryItem, on_delete=models.SET_NULL, null=True, related_name='line_items'
+    )
+    part_name = models.CharField(max_length=150)
+    sku = models.CharField(max_length=60, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.part_name} (x{self.quantity}) on {self.job_card.vehicle_number}'
+
