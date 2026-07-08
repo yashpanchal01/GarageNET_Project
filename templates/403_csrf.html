@@ -1,0 +1,17 @@
+{% extends 'error_base.html' %}
+
+{% block title %}Session expired — GarageNET{% endblock %}
+{% block error_color %}text-warning{% endblock %}
+{% block error_code %}403{% endblock %}
+{% block error_icon %}bi-shield-exclamation{% endblock %}
+{% block error_title %}Security check failed{% endblock %}
+{% block error_message %}
+  Your session security token has expired or didn't match. This usually happens
+  when a page was left open for a while, or when you signed in to a different
+  account in another tab. Please return to the login page and try again &mdash;
+  a fresh, secure session will be started for you.
+{% endblock %}
+{% block error_actions %}
+  <a href="{% url 'login' %}" class="btn btn-primary"><i class="bi bi-box-arrow-in-right me-1"></i> Return to login</a>
+  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Go to Dashboard</a>
+{% endblock %}

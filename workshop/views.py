@@ -6,13 +6,21 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import (
+    AdditionalChargeForm,
     InventoryItemForm,
     JobCardForm,
     JobCardStatusForm,
     RegistrationForm,
     WorkshopProfileForm,
 )
-from .models import InventoryItem, JobCard, WorkshopProfile, JobCardLineItem
+from .models import (
+    AdditionalCharge,
+    InventoryItem,
+    JobCard,
+    JobCardActivity,
+    JobCardLineItem,
+    WorkshopProfile,
+)
 from .utils import haversine_km
 
 LOW_STOCK_THRESHOLD = 2
@@ -68,6 +76,35 @@ def profile(request):
     return render(request, 'workshop/profile.html', {'workshop': workshop, 'form': form})
 
 
+def _build_job_distribution(total, in_progress, ready, others):
+    """Turn raw status counts into donut-chart segments.
+
+    The SVG donut uses a circle of r=15.915 (circumference ~= 100), so each
+    segment's ``dash``/``gap``/``offset`` are expressed directly as percentages.
+    ``offset = 25 - cumulative`` rotates drawing to start at the 12 o'clock mark.
+    """
+    segments = [
+        ('In-progress', '#0d6efd', in_progress),
+        ('Ready', '#198754', ready),
+        ('Others', '#6c757d', others),
+    ]
+    result = []
+    cumulative = 0.0
+    for label, color, count in segments:
+        percent = (count / total * 100) if total else 0
+        result.append({
+            'label': label,
+            'color': color,
+            'count': count,
+            'percent': round(percent, 1),
+            'dash': round(percent, 2),
+            'gap': round(100 - percent, 2),
+            'offset': round((25 - cumulative) % 100, 2),
+        })
+        cumulative += percent
+    return result
+
+
 @login_required
 def dashboard(request):
     workshop = _get_workshop(request)
@@ -76,15 +113,23 @@ def dashboard(request):
         return redirect('profile')
 
     low_stock = workshop.inventory.filter(quantity__lt=LOW_STOCK_THRESHOLD)
+
+    jobs = workshop.job_cards
+    total_jobs = jobs.count()
+    in_progress = jobs.filter(status=JobCard.Status.IN_PROGRESS).count()
+    ready = jobs.filter(status=JobCard.Status.READY).count()
+    others = total_jobs - in_progress - ready
+
     context = {
         'workshop': workshop,
-        'active_job_cards': workshop.job_cards.exclude(
-            status=JobCard.Status.READY
-        ).count(),
+        'active_job_cards': jobs.exclude(status=JobCard.Status.READY).count(),
         'low_stock_items': low_stock.count(),
         'low_stock_list': low_stock[:8],
+        'inventory_count': workshop.inventory.count(),
         'low_stock_threshold': LOW_STOCK_THRESHOLD,
-        'recent_jobs': workshop.job_cards.all()[:5],
+        'recent_jobs': jobs.all()[:5],
+        'total_jobs': total_jobs,
+        'job_distribution': _build_job_distribution(total_jobs, in_progress, ready, others),
     }
     return render(request, 'workshop/dashboard.html', context)
 
@@ -142,13 +187,23 @@ def job_cards(request):
             job = form.save(commit=False)
             job.workshop = workshop
             job.save()
+            JobCardActivity.log(
+                job, JobCardActivity.EventType.CREATED,
+                f'Job card created for {job.vehicle_number}. '
+                f'Initial status: {job.get_status_display()}.'
+            )
             messages.success(request, f'Created job card for {job.vehicle_number}.')
             return redirect('job_cards')
     elif request.method == 'POST' and action == 'update_status':
         job = get_object_or_404(JobCard, pk=request.POST.get('job_id'), workshop=workshop)
+        previous = job.get_status_display()
         status_form = JobCardStatusForm(request.POST, instance=job)
         if status_form.is_valid():
             status_form.save()
+            JobCardActivity.log(
+                job, JobCardActivity.EventType.STATUS_CHANGED,
+                f'Status changed from {previous} to {job.get_status_display()}.'
+            )
             messages.success(request, f'{job.vehicle_number} -> {job.get_status_display()}.')
         return redirect('job_cards')
     else:
@@ -293,6 +348,11 @@ def job_card_detail(request, pk):
 
                     # Recalculate bill total
                     job_card.recalculate_total()
+                    JobCardActivity.log(
+                        job_card, JobCardActivity.EventType.PART_ADDED,
+                        f'Added part "{inventory_item.part_name}" '
+                        f'(x{quantity} @ ₹{inventory_item.b2b_price}).'
+                    )
                     messages.success(request, f'Added "{inventory_item.part_name}" to the job card.')
             except ValidationError as e:
                 messages.error(request, e.message)
@@ -308,20 +368,30 @@ def job_card_detail(request, pk):
                         job_card=job_card
                     )
                     part_name = line_item.part_name
+                    part_qty = line_item.quantity
                     # Stock replenishment is handled automatically inside JobCardLineItem.delete()
                     line_item.delete()
 
                     # Recalculate bill total
                     job_card.recalculate_total()
+                    JobCardActivity.log(
+                        job_card, JobCardActivity.EventType.PART_REMOVED,
+                        f'Removed part "{part_name}" (x{part_qty}); stock replenished.'
+                    )
                     messages.success(request, f'Removed "{part_name}" from the job card.')
             except Exception:
                 messages.error(request, 'Failed to remove part.')
             return redirect('job_card_detail', pk=pk)
 
         elif action == 'update_status':
+            previous = job_card.get_status_display()
             status_form = JobCardStatusForm(request.POST, instance=job_card)
             if status_form.is_valid():
                 status_form.save()
+                JobCardActivity.log(
+                    job_card, JobCardActivity.EventType.STATUS_CHANGED,
+                    f'Status changed from {previous} to {job_card.get_status_display()}.'
+                )
                 messages.success(request, f'{job_card.vehicle_number} -> {job_card.get_status_display()}.')
             return redirect('job_card_detail', pk=pk)
 
@@ -331,9 +401,77 @@ def job_card_detail(request, pk):
         'workshop': workshop,
         'job_card': job_card,
         'line_items': job_card.line_items.all(),
+        'additional_charges': job_card.additional_charges.all(),
         'inventory_items': inventory_items,
         'status_form': JobCardStatusForm(instance=job_card),
+        'activities': job_card.activities.all(),
+        'is_ready': job_card.status == JobCard.Status.READY,
     }
     return render(request, 'workshop/job_card_detail.html', context)
+
+
+@login_required
+def job_card_bill(request, pk):
+    """Render the printable bill/invoice and manage additional (labour) charges."""
+    workshop = _get_workshop(request)
+    if workshop is None:
+        return redirect('dashboard')
+
+    job_card = get_object_or_404(JobCard, pk=pk, workshop=workshop)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add_charge':
+            form = AdditionalChargeForm(request.POST)
+            if form.is_valid():
+                with transaction.atomic():
+                    charge = form.save(commit=False)
+                    charge.job_card = job_card
+                    charge.save()
+                    job_card.recalculate_total()
+                    JobCardActivity.log(
+                        job_card, JobCardActivity.EventType.CHARGE_ADDED,
+                        f'Added charge "{charge.description}" (₹{charge.amount}).'
+                    )
+                messages.success(request, f'Added charge "{charge.description}".')
+                return redirect('job_card_bill', pk=pk)
+            # Fall through and re-render the bill with the bound (invalid) form.
+        elif action == 'remove_charge':
+            charge = get_object_or_404(
+                AdditionalCharge, pk=request.POST.get('charge_id'), job_card=job_card
+            )
+            description = charge.description
+            with transaction.atomic():
+                charge.delete()
+                job_card.recalculate_total()
+                JobCardActivity.log(
+                    job_card, JobCardActivity.EventType.CHARGE_REMOVED,
+                    f'Removed charge "{description}".'
+                )
+            messages.success(request, f'Removed charge "{description}".')
+            return redirect('job_card_bill', pk=pk)
+        else:
+            form = AdditionalChargeForm()
+    else:
+        form = AdditionalChargeForm()
+
+    # Record the first time a bill is generated for this job card.
+    if not job_card.activities.filter(
+        event_type=JobCardActivity.EventType.INVOICE_GENERATED
+    ).exists():
+        JobCardActivity.log(
+            job_card, JobCardActivity.EventType.INVOICE_GENERATED,
+            f'Bill generated. Total: ₹{job_card.total_bill}.'
+        )
+
+    context = {
+        'workshop': workshop,
+        'job_card': job_card,
+        'line_items': job_card.line_items.all(),
+        'additional_charges': job_card.additional_charges.all(),
+        'charge_form': form,
+    }
+    return render(request, 'workshop/job_card_bill.html', context)
 
 

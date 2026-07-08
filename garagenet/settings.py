@@ -29,7 +29,10 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = 'django-insecure-30lnb2mnv8ruj=o7s8zt7s*u(md7%(lxrx&bs5grq3iyn@3sc-'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Toggle via the DEBUG env var (defaults to on for local development). Set
+# DEBUG=False to serve the custom 400/403/404/500 error pages instead of
+# Django's technical debug pages.
+DEBUG = os.getenv('DEBUG', 'True').strip().lower() not in ('false', '0', 'no', 'off')
 
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver'

@@ -69,6 +69,48 @@ class AuthFlowTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse('login'), resp.url)
 
+    def test_authenticated_user_visiting_login_is_redirected_to_dashboard(self):
+        User.objects.create_user('already_in', password='pass12345')
+        self.client.login(username='already_in', password='pass12345')
+        resp = self.client.get(reverse('login'))
+        self.assertRedirects(resp, reverse('dashboard'), target_status_code=302)
+
+    def test_registration_rejects_duplicate_username(self):
+        User.objects.create_user('dupshop', password='pass12345')
+        resp = self.client.post(reverse('register'), {
+            'username': 'dupshop',
+            'password1': 'str0ng-pass-123',
+            'password2': 'str0ng-pass-123',
+            'shop_name': 'Dup Shop',
+            'phone_number': '1234567890',
+            'latitude': '18.5',
+            'longitude': '73.8',
+            'address': 'Somewhere',
+        })
+        # Re-renders the form (no redirect); the original user is untouched and
+        # no profile is created for the rejected signup.
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(User.objects.filter(username='dupshop').count(), 1)
+        self.assertFalse(WorkshopProfile.objects.filter(shop_name='Dup Shop').exists())
+        self.assertTrue(resp.context['user_form'].errors)
+
+    def test_registration_rejects_password_mismatch(self):
+        resp = self.client.post(reverse('register'), {
+            'username': 'mismatch',
+            'password1': 'str0ng-pass-123',
+            'password2': 'different-pass-456',
+            'shop_name': 'Mismatch Shop',
+            'phone_number': '1234567890',
+            'latitude': '18.5',
+            'longitude': '73.8',
+            'address': 'Somewhere',
+        })
+        # No user or profile is created when the two passwords disagree.
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(username='mismatch').exists())
+        self.assertFalse(WorkshopProfile.objects.filter(shop_name='Mismatch Shop').exists())
+        self.assertTrue(resp.context['user_form'].errors)
+
 
 class DashboardTests(TestCase):
     def setUp(self):
@@ -88,6 +130,48 @@ class DashboardTests(TestCase):
         self.assertEqual(resp.context['active_job_cards'], 1)
         self.assertEqual(resp.context['low_stock_items'], 1)
         self.assertContains(resp, 'Oil Filter')
+
+    def test_job_distribution_reflects_real_status_counts(self):
+        # 2 in-progress, 1 ready, 1 received (=> "Others") : total 4
+        JobCard.objects.create(workshop=self.workshop, vehicle_number='A1',
+                               customer_complaint='x', status=JobCard.Status.IN_PROGRESS)
+        JobCard.objects.create(workshop=self.workshop, vehicle_number='A2',
+                               customer_complaint='x', status=JobCard.Status.IN_PROGRESS)
+        JobCard.objects.create(workshop=self.workshop, vehicle_number='A3',
+                               customer_complaint='x', status=JobCard.Status.READY)
+        JobCard.objects.create(workshop=self.workshop, vehicle_number='A4',
+                               customer_complaint='x', status=JobCard.Status.RECEIVED)
+
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(resp.context['total_jobs'], 4)
+        dist = {s['label']: s for s in resp.context['job_distribution']}
+        self.assertEqual(dist['In-progress']['count'], 2)
+        self.assertEqual(dist['Ready']['count'], 1)
+        self.assertEqual(dist['Others']['count'], 1)
+        # Shares are proportional, not the old hardcoded 60/25.
+        self.assertEqual(dist['In-progress']['percent'], 50.0)
+        self.assertEqual(dist['Ready']['percent'], 25.0)
+
+    def test_job_distribution_empty_when_no_jobs(self):
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(resp.context['total_jobs'], 0)
+        for seg in resp.context['job_distribution']:
+            self.assertEqual(seg['count'], 0)
+            self.assertEqual(seg['percent'], 0)
+
+    def test_restock_message_when_inventory_is_empty(self):
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(resp.context['inventory_count'], 0)
+        self.assertContains(resp, 'No items in the inventory yet.')
+        self.assertNotContains(resp, 'All parts sufficiently stocked.')
+
+    def test_restock_message_when_all_stocked(self):
+        InventoryItem.objects.create(workshop=self.workshop, part_name='Well Stocked',
+                                     quantity=50, b2b_price=100)
+        resp = self.client.get(reverse('dashboard'))
+        self.assertEqual(resp.context['inventory_count'], 1)
+        self.assertContains(resp, 'All parts sufficiently stocked.')
+        self.assertNotContains(resp, 'No items in the inventory yet.')
 
 
 class InventoryTests(TestCase):
@@ -405,6 +489,18 @@ class ProfileViewTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.shop_name, 'Updated Shop Name')
         self.assertEqual(self.profile.latitude, 19.0760)
+
+    def test_get_profile_page_for_user_without_profile_renders_blank_form(self):
+        # A freshly-registered user sent here to set up their workshop should
+        # see an empty, unsaved form rather than someone else's data.
+        User.objects.create_user('fresh', password='pass12345')
+        self.client.login(username='fresh', password='pass12345')
+        resp = self.client.get(reverse('profile'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.context['workshop'])
+        form = resp.context['form']
+        self.assertFalse(form.is_bound)
+        self.assertIsNone(form.instance.pk)
 
     def test_post_profile_with_invalid_coords_fails(self):
         resp = self.client.post(reverse('profile'), {

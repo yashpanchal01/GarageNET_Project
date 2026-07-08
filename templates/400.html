@@ -1,0 +1,11 @@
+{% extends 'error_base.html' %}
+
+{% block title %}Bad request — GarageNET{% endblock %}
+{% block error_color %}text-warning{% endblock %}
+{% block error_code %}400{% endblock %}
+{% block error_icon %}bi-exclamation-diamond{% endblock %}
+{% block error_title %}Bad request{% endblock %}
+{% block error_message %}
+  We couldn't process that request &mdash; something in it looked malformed.
+  Please go back and try again.
+{% endblock %}

@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import InventoryItem, JobCard, WorkshopProfile
+from .models import AdditionalCharge, InventoryItem, JobCard, WorkshopProfile
 
 
 class RegistrationForm(UserCreationForm):
@@ -72,3 +72,29 @@ class JobCardStatusForm(forms.ModelForm):
         model = JobCard
         fields = ['status']
         widgets = {'status': forms.Select(attrs={'class': 'form-select form-select-sm'})}
+
+
+class AdditionalChargeForm(forms.ModelForm):
+    """Add a non-part charge (labour, diagnostics, consumables) to a bill."""
+
+    class Meta:
+        model = AdditionalCharge
+        fields = ['description', 'amount']
+        widgets = {
+            'description': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g. Labour charge, Diagnostics fee',
+            }),
+            'amount': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0.01',
+                'placeholder': '0.00',
+            }),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data.get('amount')
+        if amount is None or amount <= 0:
+            raise forms.ValidationError('Amount must be greater than zero.')
+        return amount

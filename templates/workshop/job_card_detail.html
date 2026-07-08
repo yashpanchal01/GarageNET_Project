@@ -130,6 +130,15 @@
         Status: {{ job_card.get_status_display }}
       </span>
       <h3 class="text-primary fw-bold mt-2 mb-0">Total Due: ₹{{ job_card.total_bill }}</h3>
+      {% if is_ready %}
+      <a href="{% url 'job_card_bill' job_card.pk %}" class="btn btn-success mt-3">
+        <i class="bi bi-receipt-cutoff me-1"></i> Generate Bill
+      </a>
+      {% else %}
+      <div class="text-muted small mt-3">
+        <i class="bi bi-info-circle me-1"></i> Mark job <strong>Ready</strong> to generate the bill
+      </div>
+      {% endif %}
     </div>
   </div>
 
@@ -234,11 +243,13 @@
                       <td class="text-end font-monospace">₹{{ item.unit_price }}</td>
                       <td class="text-end fw-semibold font-monospace text-primary">₹{{ item.total_price }}</td>
                       <td class="text-center pe-4">
-                        <form method="post" action="{% url 'job_card_detail' job_card.pk %}" class="d-inline">
+                        <form method="post" action="{% url 'job_card_detail' job_card.pk %}" class="d-inline"
+                              data-confirm="Remove '{{ item.part_name }}' from this job card? The stock will be returned to inventory."
+                              data-confirm-label="Remove">
                           {% csrf_token %}
                           <input type="hidden" name="action" value="remove_part">
                           <input type="hidden" name="line_item_id" value="{{ item.pk }}">
-                          <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to remove this part?')">
+                          <button type="submit" class="btn btn-sm btn-outline-danger">
                             <i class="bi bi-trash"></i> Remove
                           </button>
                         </form>
@@ -254,6 +265,18 @@
                     {% endfor %}
                   </tbody>
                   <tfoot class="table-group-divider bg-light">
+                    <tr>
+                      <td colspan="4" class="text-end ps-4 py-2 text-muted">Parts Subtotal:</td>
+                      <td class="text-end fw-semibold py-2 font-monospace">₹{{ job_card.parts_total }}</td>
+                      <td></td>
+                    </tr>
+                    {% if additional_charges %}
+                    <tr>
+                      <td colspan="4" class="text-end py-2 text-muted">Additional Charges:</td>
+                      <td class="text-end fw-semibold py-2 font-monospace">₹{{ job_card.charges_total }}</td>
+                      <td></td>
+                    </tr>
+                    {% endif %}
                     <tr>
                       <td colspan="4" class="text-end fw-bold ps-4 py-3">Invoice Total:</td>
                       <td class="text-end fw-bold text-primary py-3">₹{{ job_card.total_bill }}</td>
@@ -320,6 +343,28 @@
               </form>
             </div>
           </div>
+
+          <!-- Additional Charges Summary -->
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <h5 class="fw-bold text-secondary mb-3">Additional Charges</h5>
+              {% if additional_charges %}
+              <ul class="list-group list-group-flush mb-3">
+                {% for charge in additional_charges %}
+                <li class="list-group-item d-flex justify-content-between px-0">
+                  <span class="text-dark">{{ charge.description }}</span>
+                  <span class="fw-semibold font-monospace">₹{{ charge.amount }}</span>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="text-muted small mb-3">No labour or additional charges added yet.</p>
+              {% endif %}
+              <a href="{% url 'job_card_bill' job_card.pk %}" class="btn btn-outline-primary btn-sm w-100">
+                <i class="bi bi-receipt me-1"></i> Manage Charges on Bill
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -351,27 +396,29 @@
       <div class="card border-0 shadow-sm">
         <div class="card-body">
           <h5 class="fw-bold text-secondary mb-4">Job Lifecycle & Audit Trail</h5>
+          {% if activities %}
           <div class="position-relative border-start border-2 border-secondary-subtle ps-4 ms-2 py-2">
+            {% for activity in activities %}
             <div class="mb-4 position-relative">
-              <span class="position-absolute bg-success rounded-circle border border-white" style="width: 12px; height: 12px; left: -31px; top: 6px;"></span>
-              <div class="fw-semibold text-dark">Invoice Recalculated</div>
-              <div class="text-muted small">System recalculated totals. Current Invoice Total: ₹{{ job_card.total_bill }}.</div>
-            </div>
-            
-            {% for item in line_items %}
-            <div class="mb-4 position-relative">
-              <span class="position-absolute bg-primary rounded-circle border border-white" style="width: 12px; height: 12px; left: -31px; top: 6px;"></span>
-              <div class="fw-semibold text-dark">Added part: "{{ item.part_name }}"</div>
-              <div class="text-muted small">Quantity: {{ item.quantity }} | Unit price: ₹{{ item.unit_price }} | SKU: {{ item.sku|default:"-" }}</div>
+              <span class="position-absolute rounded-circle border border-white
+                {% if activity.event_type == 'CREATED' %}bg-info
+                {% elif activity.event_type == 'PART_ADDED' or activity.event_type == 'CHARGE_ADDED' %}bg-primary
+                {% elif activity.event_type == 'PART_REMOVED' or activity.event_type == 'CHARGE_REMOVED' %}bg-danger
+                {% elif activity.event_type == 'INVOICE_GENERATED' %}bg-success
+                {% else %}bg-secondary{% endif %}"
+                style="width: 12px; height: 12px; left: -31px; top: 6px;"></span>
+              <div class="fw-semibold text-dark">{{ activity.get_event_type_display }}</div>
+              <div class="text-muted small">{{ activity.description }}</div>
+              <div class="text-muted" style="font-size: 0.7rem;">{{ activity.created_at|date:"M d, Y h:i A" }}</div>
             </div>
             {% endfor %}
-
-            <div class="mb-2 position-relative">
-              <span class="position-absolute bg-info rounded-circle border border-white" style="width: 12px; height: 12px; left: -31px; top: 6px;"></span>
-              <div class="fw-semibold text-dark">Job Card Initialized</div>
-              <div class="text-muted small">Vehicle number {{ job_card.vehicle_number }} checked-in successfully. Initial status set to {{ job_card.get_status_display }}.</div>
-            </div>
           </div>
+          {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="bi bi-clock-history fs-2 d-block mb-2"></i>
+            No activity has been recorded for this job card yet.
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>

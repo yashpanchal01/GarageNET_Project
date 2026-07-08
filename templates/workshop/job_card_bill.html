@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}Bill - {{ job_card.vehicle_number }} - GarageNET{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<style>
+  .invoice-sheet {
+    background: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.08);
+    padding: 2.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .invoice-title {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02rem;
+    color: #0d6efd;
+  }
+  @media print {
+    /* Strip the app chrome so only the invoice sheet prints. */
+    nav, footer, .no-print, .alert { display: none !important; }
+    body { background: #ffffff !important; }
+    .invoice-sheet { box-shadow: none; padding: 0; max-width: 100%; }
+    .container { padding: 0 !important; }
+  }
+</style>
+
+<!-- Top actions (hidden when printing) -->
+<div class="d-flex justify-content-between align-items-center mb-3 no-print" style="max-width: 900px; margin: 0 auto;">
+  <a href="{% url 'job_card_detail' job_card.pk %}" class="btn btn-sm btn-outline-secondary">&larr; Back to Job Card</a>
+  <button type="button" class="btn btn-sm btn-primary" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i> Print / Save PDF
+  </button>
+</div>
+
+<div class="invoice-sheet">
+  <!-- Header: workshop + invoice meta -->
+  <div class="d-flex justify-content-between align-items-start flex-wrap border-bottom pb-4 mb-4">
+    <div>
+      <div class="invoice-title"><i class="bi bi-tools me-2"></i>{{ workshop.shop_name }}</div>
+      <div class="text-muted small mt-2">
+        {% if workshop.address %}{{ workshop.address }}<br>{% endif %}
+        <i class="bi bi-telephone me-1"></i>{{ workshop.phone_number }}
+      </div>
+    </div>
+    <div class="text-end">
+      <h2 class="fw-bold text-uppercase text-secondary mb-1">Bill</h2>
+      <div class="small text-muted">Job Card #{{ job_card.pk }}</div>
+      <div class="small text-muted">Date: {{ job_card.created_at|date:"M d, Y" }}</div>
+      <span class="badge mt-2 {% if job_card.status == 'READY' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+        {{ job_card.get_status_display }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Vehicle & complaint -->
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3">
+      <div class="text-muted small fw-bold text-uppercase">Vehicle</div>
+      <div class="fs-5 fw-bold text-dark">{{ job_card.vehicle_number }}</div>
+    </div>
+    <div class="col-md-6 mb-3">
+      <div class="text-muted small fw-bold text-uppercase">Customer Complaint</div>
+      <div class="text-dark">{{ job_card.customer_complaint }}</div>
+    </div>
+  </div>
+
+  <!-- Parts table -->
+  <h5 class="fw-bold text-secondary mb-3">Parts &amp; Materials</h5>
+  <div class="table-responsive mb-4">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Part Name</th>
+          <th>SKU</th>
+          <th class="text-end">Qty</th>
+          <th class="text-end">Unit Price</th>
+          <th class="text-end">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in line_items %}
+        <tr>
+          <td class="fw-semibold text-dark">{{ item.part_name }}</td>
+          <td><span class="font-monospace small text-muted">{{ item.sku|default:"-" }}</span></td>
+          <td class="text-end font-monospace">{{ item.quantity }}</td>
+          <td class="text-end font-monospace">₹{{ item.unit_price }}</td>
+          <td class="text-end font-monospace fw-semibold">₹{{ item.total_price }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted py-3">No parts added.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Additional / labour charges -->
+  <h5 class="fw-bold text-secondary mb-3">Labour &amp; Additional Charges</h5>
+  <div class="table-responsive mb-3">
+    <table class="table table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Description</th>
+          <th class="text-end">Amount</th>
+          <th class="text-center no-print" style="width: 90px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for charge in additional_charges %}
+        <tr>
+          <td class="text-dark">{{ charge.description }}</td>
+          <td class="text-end font-monospace fw-semibold">₹{{ charge.amount }}</td>
+          <td class="text-center no-print">
+            <form method="post" action="{% url 'job_card_bill' job_card.pk %}" class="d-inline"
+                  data-confirm="Remove the charge '{{ charge.description }}' (₹{{ charge.amount }}) from this bill?"
+                  data-confirm-label="Remove">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="remove_charge">
+              <input type="hidden" name="charge_id" value="{{ charge.pk }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="text-center text-muted py-3">No labour or additional charges added.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add charge form (hidden when printing) -->
+  <div class="card bg-light-subtle border-0 mb-4 no-print">
+    <div class="card-body">
+      <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-plus-circle me-1"></i>Add Labour / Additional Charge</h6>
+      <form method="post" action="{% url 'job_card_bill' job_card.pk %}" class="row g-2 align-items-start">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_charge">
+        <div class="col-md-7">
+          {{ charge_form.description }}
+          {% if charge_form.description.errors %}
+          <div class="text-danger small mt-1">{{ charge_form.description.errors|striptags }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-3">
+          {{ charge_form.amount }}
+          {% if charge_form.amount.errors %}
+          <div class="text-danger small mt-1">{{ charge_form.amount.errors|striptags }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-2 d-grid">
+          <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Totals -->
+  <div class="d-flex justify-content-end">
+    <table class="table table-sm w-auto mb-0">
+      <tr>
+        <td class="text-end text-muted pe-4">Parts Subtotal:</td>
+        <td class="text-end font-monospace fw-semibold">₹{{ job_card.parts_total }}</td>
+      </tr>
+      <tr>
+        <td class="text-end text-muted pe-4">Additional Charges:</td>
+        <td class="text-end font-monospace fw-semibold">₹{{ job_card.charges_total }}</td>
+      </tr>
+      <tr class="border-top">
+        <td class="text-end fw-bold pe-4 fs-5 pt-3">Grand Total:</td>
+        <td class="text-end fw-bold text-primary font-monospace fs-5 pt-3">₹{{ job_card.total_bill }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="text-center text-muted small mt-5 pt-4 border-top">
+    Thank you for your business &mdash; {{ workshop.shop_name }}
+  </div>
+</div>
+{% endblock %}

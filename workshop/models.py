@@ -69,13 +69,23 @@ class JobCard(models.Model):
         return f'{self.vehicle_number} [{self.get_status_display()}]'
 
     def recalculate_total(self):
-        """Recalculate total bill from all line items and save."""
+        """Recalculate total bill from all line items plus additional charges and save."""
+        self.total_bill = self.parts_total + self.charges_total
+        self.save(update_fields=['total_bill'])
+
+    @property
+    def parts_total(self):
+        """Sum of every consumed part's (quantity x unit_price)."""
         from django.db.models import F, Sum
-        total = self.line_items.aggregate(
+        return self.line_items.aggregate(
             total=Sum(F('quantity') * F('unit_price'), output_field=models.DecimalField())
         )['total'] or 0
-        self.total_bill = total
-        self.save(update_fields=['total_bill'])
+
+    @property
+    def charges_total(self):
+        """Sum of all additional (e.g. labour) charges on this job card."""
+        from django.db.models import Sum
+        return self.additional_charges.aggregate(total=Sum('amount'))['total'] or 0
 
     def delete(self, *args, **kwargs):
         from django.db import transaction
@@ -123,5 +133,56 @@ class JobCardLineItem(models.Model):
                     quantity=F('quantity') + self.quantity
                 )
             super().delete(*args, **kwargs)
+
+
+class AdditionalCharge(models.Model):
+    """A non-part line on a JobCard's bill, e.g. labour, diagnostics, consumables."""
+
+    job_card = models.ForeignKey(
+        JobCard, on_delete=models.CASCADE, related_name='additional_charges'
+    )
+    description = models.CharField(max_length=150)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.description} (₹{self.amount})'
+
+
+class JobCardActivity(models.Model):
+    """An append-only audit log entry describing something that happened to a JobCard."""
+
+    class EventType(models.TextChoices):
+        CREATED = 'CREATED', 'Job Card Created'
+        PART_ADDED = 'PART_ADDED', 'Part Added'
+        PART_REMOVED = 'PART_REMOVED', 'Part Removed'
+        STATUS_CHANGED = 'STATUS_CHANGED', 'Status Changed'
+        CHARGE_ADDED = 'CHARGE_ADDED', 'Charge Added'
+        CHARGE_REMOVED = 'CHARGE_REMOVED', 'Charge Removed'
+        INVOICE_GENERATED = 'INVOICE_GENERATED', 'Invoice Generated'
+
+    job_card = models.ForeignKey(
+        JobCard, on_delete=models.CASCADE, related_name='activities'
+    )
+    event_type = models.CharField(max_length=20, choices=EventType.choices)
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = 'job card activities'
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f'{self.get_event_type_display()} on {self.job_card.vehicle_number}'
+
+    @classmethod
+    def log(cls, job_card, event_type, description):
+        """Convenience helper for recording an activity entry."""
+        return cls.objects.create(
+            job_card=job_card, event_type=event_type, description=description
+        )
 
 
